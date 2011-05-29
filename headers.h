@@ -55,4 +55,6 @@ struct udphdr {
 	u_int16_t	uh_sum;			/* udp checksum */
 };
 
+#define UDP_HEADER_LEN 8
+
 #endif
