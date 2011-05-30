@@ -1,1 +1,3 @@
-it's going to be the tcpdump for ndn
+This is the packet capture and analysis tool for Named Data Networking (NDN).
+It is created to provide a tcpdump-like tool for NDN network.
+For more information about NDN, click http://www.named-data.net/
