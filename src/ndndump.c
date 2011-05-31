@@ -32,11 +32,12 @@
 struct flags_t {
 	int verbose;
 	int succinct;
+	int unix;
 	int udp;
 	int tcp;
 };
 
-struct flags_t flags = {0, 0, 1, 1};
+struct flags_t flags = {0, 0, 0, 1, 1};
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int dissect_ccn(const char *payload, int size_payload, char *pbuf);
@@ -67,7 +68,8 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		return;
 	}
 
-	int printed;
+	int printed = 0;
+
 	switch(ip_hdr->ip_p) {
 		case IPPROTO_UDP:
 			if (!flags.udp)
@@ -397,7 +399,7 @@ int main(int argc, char *argv[])
 
 	int c;
 
-	while ((c = getopt(argc, argv, "vsuthi:")) != -1) {
+	while ((c = getopt(argc, argv, "vsuthni:")) != -1) {
 		switch (c) {
 		case 'v':
 			vflag = 1;
@@ -437,17 +439,19 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (nflag == -1) {
-		if (vflag == 1 && sflag == 1) {
-			fprintf(stderr, "Conflicting options -v and -s\n");
-			return 1;
-		}
+	if (1 == nflag) 
+		flags.unix = 1;
 
-		if (1 == vflag)
-			flags.verbose = 1;
-		if (1 == sflag)
-			flags.succinct = 1;
+	if (1 == vflag && 1 == sflag) {
+		fprintf(stderr, "Conflicting options -v and -s\n");
+		return 1;
 	}
+
+	if (1 == vflag)
+		flags.verbose = 1;
+	if (1 == sflag)
+		flags.succinct = 1;
+
 	if (1 == uflag && -1 == tflag) {
 		flags.udp = 1;
 		flags.tcp = 0;
@@ -498,16 +502,20 @@ void print_intercept_time() {
 	struct timezone tz;
 	struct tm *tm;
 	gettimeofday(&tv, &tz);
-	tm = localtime(&tv.tv_sec);
-	printf("%d:%02d:%02d.%d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec);
+	if (flags.unix) { 
+		printf("%d.%d, ", (int) tv.tv_sec, tv.tv_usec);
+	} else {
+		tm = localtime(&tv.tv_sec);
+		printf("%d:%02d:%02d.%d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec);
+	}
 }
 
 void usage() {
-	printf("usage: ndndump [-nstuv] [-i interface]\n");
+	printf("usage: ndndump [-hnstuv] [-i interface]\n");
 	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
-	printf("\t\t-n: normal mode (default)\n");
-	printf("\t\t-s: sinccinct mode, will only print minimal info about Interest or Content Object\n");
+	printf("\t\t-n: use unix timestamp in seconds\n");
+	printf("\t\t-s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("\t\t-t: track only tcp tunnel\n");
 	printf("\t\t-u: track only udp tunnel\n");
 	printf("\t\t-v: verbose mode, will print detail info about Interest or Content Object\n");
