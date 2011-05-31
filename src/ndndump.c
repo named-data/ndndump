@@ -397,7 +397,7 @@ int main(int argc, char *argv[])
 
 	int c;
 
-	while ((c = getopt(argc, argv, "vsuti:")) != -1) {
+	while ((c = getopt(argc, argv, "vsuthi:")) != -1) {
 		switch (c) {
 		case 'v':
 			vflag = 1;
@@ -419,6 +419,7 @@ int main(int argc, char *argv[])
 			break;
 		case 'h':
 			usage();
+			return 0;
 		case '?':
 			if (optopt == 'i')
 				fprintf(stderr, "Option -i requires an argument.\n");
@@ -503,6 +504,7 @@ void print_intercept_time() {
 
 void usage() {
 	printf("usage: ndndump [-nstuv] [-i interface]\n");
+	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
 	printf("\t\t-n: normal mode (default)\n");
 	printf("\t\t-s: sinccinct mode, will only print minimal info about Interest or Content Object\n");
