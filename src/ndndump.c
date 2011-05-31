@@ -1,6 +1,20 @@
 /* ndndump.c 
- * adapted from ccn plugin for wireshark
+ * Adapted from ccn plugin for wireshark in the ccnx package
+ *
+ * Copyright (C) 2011 IRL, CS, UCLA.
+ *
+ * This work is free software; you can redistribute it and/or modify it under
+ * the terms of the GNU General Public License version 2 as published by the
+ * Free Software Foundation.
+ * This work is distributed in the hope that it will be useful, but WITHOUT ANY
+ * WARRANTY; without even the implied warranty of MERCHANTABILITY or
+ * FITNESS FOR A PARTICULAR PURPOSE. See the GNU General Public License
+ * for more details. You should have received a copy of the GNU General Public
+ * License along with this program; if not, write to the
+ * Free Software Foundation, Inc., 51 Franklin Street, Fifth Floor,
+ * Boston, MA 02110-1301, USA.
  */
+
 #include "headers.h"
 #include <ccn/ccn.h>
 #include <ccn/ccnd.h>
