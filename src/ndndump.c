@@ -40,10 +40,10 @@ struct flags_t {
 struct flags_t flags = {0, 0, 0, 1, 1};
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
-int dissect_ccn(const char *payload, int size_payload, char *pbuf);
+int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
 int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size);
 int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size);
-void print_intercept_time();
+void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf);
 void usage();
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
 	/* declare pointers to packet headers */
@@ -59,7 +59,9 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	int size_payload;
 
 	char pbuf[PBUF_SIZE];
+	char tbuf[PBUF_SIZE];
 
+	print_intercept_time(header, tbuf);
 	ether_hdr = (struct ether_header *) (packet);
 	ip_hdr = (struct ip *) (packet + ETHER_HDRLEN);
 	size_ip = IP_HL(ip_hdr) * 4;
@@ -80,7 +82,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			payload = (const char *)(packet + ETHER_HDRLEN + size_ip + size_udp);
 			printed = sprintf(pbuf, "From: %s, ", inet_ntoa(ip_hdr->ip_src));
 			sprintf(pbuf + printed, "To:%s, Tunnel Type: UDP\n",  inet_ntoa(ip_hdr->ip_dst));
-			dissect_ccn(payload, size_payload, pbuf);
+			dissect_ccn(payload, size_payload, pbuf, tbuf);
 			break;
 		case IPPROTO_TCP:
 			if (!flags.tcp)
@@ -95,7 +97,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			size_payload = ntohs(ip_hdr->ip_len) - (size_ip + size_tcp);
 			printed = sprintf(pbuf, "From: %s, ", inet_ntoa(ip_hdr->ip_src));
 			sprintf(pbuf + printed, "To:%s, Tunnel Type: TCP\n",  inet_ntoa(ip_hdr->ip_dst));
-			dissect_ccn(payload, size_payload, pbuf);
+			dissect_ccn(payload, size_payload, pbuf, tbuf);
 			break;
 		default:
 			return;
@@ -103,7 +105,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 
 }
 
-int dissect_ccn(const char *payload, int size_payload, char *pbuf) {
+int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
 	struct ccn_skeleton_decoder skel_decoder;
 	struct ccn_skeleton_decoder *sd;
 	struct ccn_charbuf *c;
@@ -145,7 +147,7 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf) {
 	
 	switch (packet_type) {
 		case CCN_DTAG_ContentObject:
-			print_intercept_time();
+			printf("%s", tbuf);
 			if (!flags.succinct) {
 				printf("%s", pbuf);
 			}
@@ -153,7 +155,7 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf) {
 				return 0;
 			break;
 		case CCN_DTAG_Interest:
-			print_intercept_time();
+			printf("%s", tbuf);
 			if (!flags.succinct) {
 				printf("%s", pbuf);
 			}
@@ -497,16 +499,13 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void print_intercept_time() {
-	struct timeval tv;
-	struct timezone tz;
+void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 	struct tm *tm;
-	gettimeofday(&tv, &tz);
 	if (flags.unix) { 
-		printf("%d.%d, ", (int) tv.tv_sec, tv.tv_usec);
+		sprintf(tbuf, "%d.%d, ", (int) header->ts.tv_sec, header->ts.tv_usec);
 	} else {
-		tm = localtime(&tv.tv_sec);
-		printf("%d:%02d:%02d.%d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, tv.tv_usec);
+		tm = localtime(&(header->ts.tv_sec));
+		sprintf(tbuf, "%d:%02d:%02d.%d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, header->ts.tv_usec);
 	}
 }
 
