@@ -609,7 +609,7 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 		sprintf(tbuf, "%d.%06d, ", (int) header->ts.tv_sec, (int)header->ts.tv_usec);
 	} else {
 		tm = localtime(&(header->ts.tv_sec));
-		sprintf(tbuf, "%d:%02d:%02d.%06d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, header->ts.tv_usec);
+		sprintf(tbuf, "%d:%02d:%02d.%06d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, (int)header->ts.tv_usec);
 	}
 }
 
