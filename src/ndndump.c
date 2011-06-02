@@ -30,6 +30,7 @@
 #define PBUF_SIZE 200
 
 struct flags_t {
+	int ccnb;
 	int verbose;
 	int signature;
 	int succinct;
@@ -38,7 +39,7 @@ struct flags_t {
 	int tcp;
 };
 
-struct flags_t flags = {0, 0, 0, 0, 1, 1};
+struct flags_t flags = {0, 0, 0, 0, 0, 1, 1};
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
@@ -272,6 +273,13 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size) {
 			printf("InterestLifetime: %f\n", lifetime);
 		}
 	}
+	
+
+	if (flags.ccnb) {
+		printf("Interest: \n");
+		print_payload(ccnb, ccnb_size);
+		printf("\n");
+	}
 
 	return 1;
 
@@ -455,6 +463,13 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size) {
 		}
 		/* KeyLocator */
 	}
+	
+
+	if (flags.ccnb) {
+		printf("ContentObject:\n");
+		print_payload(ccnb, ccnb_size);
+		printf("\n");
+	}
 
 	return (ccnb_size);
 
@@ -476,11 +491,15 @@ int main(int argc, char *argv[])
 	int tflag = -1;
 	int nflag = -1;
 	int gflag = -1;
+	int cflag = -1;
 
 	int c;
 
-	while ((c = getopt(argc, argv, "gvsuthni:")) != -1) {
+	while ((c = getopt(argc, argv, "cgvsuthni:")) != -1) {
 		switch (c) {
+		case 'c': 
+			cflag = 1;
+			break;
 		case 'g':
 			gflag = 1;
 			break;
@@ -522,6 +541,8 @@ int main(int argc, char *argv[])
 		}
 	}
 
+	if (1 == cflag) 
+		flags.ccnb = 1;
 	if (1 == gflag)
 		flags.signature = 1;
 	if (1 == nflag) 
@@ -593,7 +614,9 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 }
 
 void usage() {
-	printf("usage: ndndump [-hnstuv] [-i interface]\n");
+	printf("usage: ndndump [-cghnstuv] [-i interface]\n");
+	printf("\t\t-c: print ccnb\n");
+	printf("\t\t-g: print signature of Content Object\n");
 	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
 	printf("\t\t-n: use unix timestamp in seconds\n");
