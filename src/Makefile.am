@@ -1,5 +1,5 @@
 # FLAGS
-AM_CFLAGS = -Wall -std=c99 -D_GNU_SOURCE
+AM_CFLAGS = -Wall 
 AM_LDFLAGS = -lpcap -lccn -lcrypto
 
 # Binary
