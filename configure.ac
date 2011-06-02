@@ -3,11 +3,10 @@
 
 AC_PREREQ(2.62)
 AC_INIT(ndndump, 0.1, zhenkai@cs.ucla.edu)
-AM_INIT_AUTOMAKE(ndndump, 0.1)
 AC_CONFIG_HEADERS([config.h])
-
-
 AC_CONFIG_SRCDIR([src/headers.h])
+
+AM_INIT_AUTOMAKE([-Wall])
 
 # Checks for programs.
 AC_PROG_CC
