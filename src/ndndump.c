@@ -292,13 +292,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size) {
 	if (res <0) 
 		return res;
 	
-	/* Signature */
-	len = pco->offset[CCN_PCO_E_Signature] - pco->offset[CCN_PCO_B_Signature];
-	/* TODO: do something with signature */
 
-	/* DigestAlogorith */
-	/* Witness */
-	/* Signature bits */
 	
 	/* Name */
 	len = pco->offset[CCN_PCO_E_Name] - pco->offset[CCN_PCO_B_Name];
@@ -318,12 +312,82 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size) {
 		/* TODO: do something */
 	}
 
-	/* SignedInfo */
-	/* PublisherPublicKeyDigest */
+	
 
-    /* Timestamp */
+
 
 	if (flags.verbose)  {
+		/* Signature */
+		len = pco->offset[CCN_PCO_E_Signature] - pco->offset[CCN_PCO_B_Signature];
+		if (len > 0) {
+		printf("Signature: \n\t");
+
+			/* DigestAlgorithm */
+			len = pco->offset[CCN_PCO_E_DigestAlgorithm] - pco->offset[CCN_PCO_B_DigestAlgorithm];
+			if (len > 0) {
+				blob_size = 0;
+				res = ccn_ref_tagged_BLOB(CCN_DTAG_DigestAlgorithm, ccnb,
+										  pco->offset[CCN_PCO_B_DigestAlgorithm],
+										  pco->offset[CCN_PCO_E_DigestAlgorithm],
+										  &blob, &blob_size);
+				printf("DigestAlogrithm: ");
+				for (i = 0; i < blob_size; i++) {
+					printf("%02x", *blob);
+					blob++;
+				}
+				printf("\n\t");
+			}
+			/* Witness */
+			/* Signature bits */
+			len = pco->offset[CCN_PCO_E_SignatureBits] - pco->offset[CCN_PCO_B_SignatureBits];
+			if (len > 0) {
+				blob_size = 0;
+				res = ccn_ref_tagged_BLOB(CCN_DTAG_SignatureBits, ccnb,
+										  pco->offset[CCN_PCO_B_SignatureBits],
+										  pco->offset[CCN_PCO_E_SignatureBits],
+										  &blob, &blob_size);
+				
+				printf("SignatureBits: ");
+				for (i = 0; i < blob_size; i++) {
+					printf("%02x", *blob);
+					blob++;
+				}
+				printf("\n");
+			}
+		}
+		/* SignedInfo */
+		printf("Signed Info:\n\t");
+		/* PublisherPublicKeyDigest */
+		len = pco->offset[CCN_PCO_E_PublisherPublicKeyDigest] - pco->offset[CCN_PCO_B_PublisherPublicKeyDigest];
+		if (len > 0) {
+			blob_size = 0;
+			res = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, ccnb,
+									  pco->offset[CCN_PCO_B_PublisherPublicKeyDigest],
+									  pco->offset[CCN_PCO_E_PublisherPublicKeyDigest],
+									  &blob, &blob_size);
+			printf("PublisherPublicKeyDigest: ");
+			for (i = 0; i < blob_size; i++) {
+				printf("%02x", *blob);
+				blob++;
+			}
+			printf("\n\t");
+
+		}
+
+		/* Timestamp */
+		len = pco->offset[CCN_PCO_E_Timestamp] - pco->offset[CCN_PCO_B_Timestamp];
+		if (len > 0) {
+			res = ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, ccnb,
+									  pco->offset[CCN_PCO_B_Timestamp],
+									  pco->offset[CCN_PCO_E_Timestamp],
+									  &blob, &blob_size);
+			double dt = 0.0;
+			for (i = 0; i < blob_size; i++)
+				dt = dt * 256.0 + (double)blob[i];
+			dt /= 4096.0;
+			printf("TimeStamp: %f, ", dt);
+		}
+
 		/* Type */
 		len = pco->offset[CCN_PCO_E_Type] - pco->offset[CCN_PCO_B_Type];
 		if (len > 0) {
