@@ -1,7 +1,7 @@
 #                                               -*- Autoconf -*-
 # Process this file with autoconf to produce a configure script.
 
-AC_PREREQ(2.68)
+AC_PREREQ(2.62)
 AC_INIT(ndndump, 0.1, zhenkai@cs.ucla.edu)
 AM_INIT_AUTOMAKE(ndndump, 0.1)
 AC_CONFIG_HEADERS([config.h])
