@@ -615,7 +615,7 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 
 void usage() {
 	printf("usage: ndndump [-cghnstuv] [-i interface]\n");
-	printf("\t\t-c: print ccnb\n");
+	printf("\t\t-c: print the whole ccnb\n");
 	printf("\t\t-g: print signature of Content Object\n");
 	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
@@ -623,7 +623,7 @@ void usage() {
 	printf("\t\t-s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("\t\t-t: track only tcp tunnel\n");
 	printf("\t\t-u: track only udp tunnel\n");
-	printf("\t\t-v: verbose mode, will print detail info about Interest or Content Object\n");
+	printf("\t\t-v: verbose mode, will also print filters of Interest and SignedInfo of Content Object\n");
 }
 
 /*
