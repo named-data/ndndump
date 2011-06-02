@@ -34,7 +34,7 @@ struct flags_t {
 	int verbose;
 	int signature;
 	int succinct;
-	int unix;
+	int unit_time;
 	int udp;
 	int tcp;
 };
@@ -546,7 +546,7 @@ int main(int argc, char *argv[])
 	if (1 == gflag)
 		flags.signature = 1;
 	if (1 == nflag) 
-		flags.unix = 1;
+		flags.unit_time = 1;
 
 	if (1 == vflag && 1 == sflag) {
 		fprintf(stderr, "Conflicting options -v and -s\n");
@@ -605,7 +605,7 @@ int main(int argc, char *argv[])
 
 void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 	struct tm *tm;
-	if (flags.unix) { 
+	if (flags.unit_time) { 
 		sprintf(tbuf, "%d.%06d, ", (int) header->ts.tv_sec, header->ts.tv_usec);
 	} else {
 		tm = localtime(&(header->ts.tv_sec));
@@ -619,7 +619,7 @@ void usage() {
 	printf("\t\t-g: print signature of Content Object\n");
 	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
-	printf("\t\t-n: use unix timestamp in seconds\n");
+	printf("\t\t-n: use unit_time timestamp in seconds\n");
 	printf("\t\t-s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("\t\t-t: track only tcp tunnel\n");
 	printf("\t\t-u: track only udp tunnel\n");
