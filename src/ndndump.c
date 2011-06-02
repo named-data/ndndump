@@ -624,6 +624,10 @@ void usage() {
 	printf("\t\t-t: track only tcp tunnel\n");
 	printf("\t\t-u: track only udp tunnel\n");
 	printf("\t\t-v: verbose mode, will also print filters of Interest and SignedInfo of Content Object\n");
+	printf("\ndefault: \n");
+	printf("\t\tselect the default interface\n");
+	printf("\t\tprint timestamp and TCP/IP info of the ccn tunnel\n");
+	printf("\t\tprint names of Interest and ContentObject\n");
 }
 
 /*
