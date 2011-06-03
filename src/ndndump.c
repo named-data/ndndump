@@ -23,6 +23,7 @@
 #include <sys/time.h>
 #include <unistd.h>
 #include <ctype.h>
+#include <string.h>
 
 
 #define MAX_SNAPLEN 65535
@@ -39,12 +40,13 @@ struct flags_t {
 	int tcp;
 };
 
-struct flags_t flags = {0, 0, 0, 0, 0, 1, 1};
+static struct flags_t flags = {0, 0, 0, 0, 0, 1, 1};
+static char *prefix = NULL;
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
-int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size);
-int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size);
+int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
+int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
 void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf);
 void print_payload(const u_char *payload, int len);
 void print_hex_ascii_line(const u_char *payload, int len, int offset);
@@ -151,19 +153,12 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
 	
 	switch (packet_type) {
 		case CCN_DTAG_ContentObject:
-			printf("%s", tbuf);
-			if (!flags.succinct) {
-				printf("%s", pbuf);
-			}
-			if (0 > dissect_ccn_content(ccnb, sd->index))
+
+			if (0 > dissect_ccn_content(ccnb, sd->index, pbuf, tbuf))
 				return 0;
 			break;
 		case CCN_DTAG_Interest:
-			printf("%s", tbuf);
-			if (!flags.succinct) {
-				printf("%s", pbuf);
-			}
-			if (0 > dissect_ccn_interest(ccnb, sd->index))
+			if (0 > dissect_ccn_interest(ccnb, sd->index, pbuf, tbuf))
 				return 0;
 			break;
 		default:
@@ -173,7 +168,7 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
 	return (sd->index);
 
 }
-int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size) {
+int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
 	struct ccn_parsed_interest interest;
 	struct ccn_parsed_interest *pi = &interest;
 	struct ccn_charbuf *c;
@@ -196,7 +191,18 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size) {
 	len = pi->offset[CCN_PI_E_Name] - pi->offset[CCN_PI_B_Name];
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, ccnb_size, 1);
+	if (prefix != NULL && strncmp(prefix, ccn_charbuf_as_string(c), strlen(prefix)) != 0) {
+		if (strncmp(prefix, ccn_charbuf_as_string(c) + 5, strlen(prefix)) != 0)
+			return 0;
+	}
+
+	printf("%s", tbuf);
+	if (!flags.succinct) {
+		printf("%s", pbuf);
+	}
 	printf("Packet Type: Interest, Name: %s, ", ccn_charbuf_as_string(c));
+
+
 	/*
 	for (i = 0; i < comps->n - 1; i++) {
 		res = ccn_name_comp_get(ccnb, comps, i, &comp, &comp_size);
@@ -285,7 +291,7 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size) {
 
 }
 
-int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size) {
+int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
 	struct ccn_parsed_ContentObject co;
 	struct ccn_parsed_ContentObject *pco = &co;
 	struct ccn_charbuf *c;
@@ -309,6 +315,16 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size) {
 	len = pco->offset[CCN_PCO_E_Name] - pco->offset[CCN_PCO_B_Name];
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, ccnb_size, 1);
+
+	if (prefix != NULL && strncmp(prefix, ccn_charbuf_as_string(c), strlen(prefix)) != 0) {
+		if (strncmp(prefix, ccn_charbuf_as_string(c) + 5, strlen(prefix)) != 0)
+			return 0;
+	}
+
+	printf("%s", tbuf);
+	if (!flags.succinct) {
+		printf("%s", pbuf);
+	}
 
 	/* Content */
 	len = pco->offset[CCN_PCO_E_Content] - pco->offset[CCN_PCO_B_Content];
@@ -477,6 +493,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size) {
 
 int main(int argc, char *argv[])
 {
+
 	char *dev = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t *handle;						/* Session handle */
@@ -495,13 +512,16 @@ int main(int argc, char *argv[])
 
 	int c;
 
-	while ((c = getopt(argc, argv, "cgvsuthni:")) != -1) {
+	while ((c = getopt(argc, argv, "cgvsuthni:p:")) != -1) {
 		switch (c) {
 		case 'c': 
 			cflag = 1;
 			break;
 		case 'g':
 			gflag = 1;
+			break;
+		case 'p':
+			prefix = optarg;	
 			break;
 		case 'v':
 			vflag = 1;
@@ -525,8 +545,8 @@ int main(int argc, char *argv[])
 			usage();
 			return 0;
 		case '?':
-			if (optopt == 'i')
-				fprintf(stderr, "Option -i requires an argument.\n");
+			if ('i' == optopt || 'p' == optopt )
+				fprintf(stderr, "Option `-%c' requires an argument.\n", optopt);
 			else if (isprint(optopt))
 				fprintf(stderr, "Unknown option `-%c'.\n", optopt);
 			else
@@ -576,6 +596,8 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Device: %s\n", dev);
+	if (prefix != NULL)
+		printf("Name Prefix: %s\n", prefix);
 
 	if (-1 == pcap_lookupnet(dev, &net, &mask, errbuf)) {
 		fprintf(stderr, "couldn't get netmask for device %s: %s\n", dev, errbuf);
@@ -614,12 +636,13 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 }
 
 void usage() {
-	printf("usage: ndndump [-cghnstuv] [-i interface]\n");
+	printf("usage: ndndump [-cghnstuv] [-i interface] [-p prefix]\n");
 	printf("\t\t-c: print the whole ccnb\n");
 	printf("\t\t-g: print signature of Content Object\n");
 	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
 	printf("\t\t-n: use unit_time timestamp in seconds\n");
+	printf("\t\t-p: dump packets whose name begins with prefix\n");
 	printf("\t\t-s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("\t\t-t: track only tcp tunnel\n");
 	printf("\t\t-u: track only udp tunnel\n");
