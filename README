@@ -3,7 +3,10 @@ It is created to provide a tcpdump-like tool for NDN network.
 For more information about NDN, click http://www.named-data.net/
 
 To install:
-$ ./autogen.sh
+
 $ ./configure
 $ make
 $ make install
+
+if that failed, perhaps you need to generate 'configure' file by yourself.
+$ ./autogen.sh
