@@ -473,11 +473,12 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 			
 			/* TODO: do something */
 			if (res == 0) 
-				printf("FinalBlockID: Yes\n");
+				printf("FinalBlockID: Yes");
 			else
-				printf("FinalBlockID: No\n");
+				printf("FinalBlockID: No");
 		}
 		/* KeyLocator */
+		printf("\n");
 	}
 	
 
