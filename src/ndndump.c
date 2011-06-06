@@ -41,7 +41,8 @@ struct flags_t {
 };
 
 static struct flags_t flags = {0, 0, 0, 0, 0, 1, 1};
-static char *prefix = NULL;
+static char **prefixes = NULL;
+static int prefix_num = 0;
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
@@ -51,6 +52,9 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf);
 void print_payload(const u_char *payload, int len);
 void print_hex_ascii_line(const u_char *payload, int len, int offset);
 void usage();
+int match_name(struct ccn_charbuf *c);
+
+
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
 	/* declare pointers to packet headers */
 	const struct ether_header *ether_hdr;
@@ -168,6 +172,9 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
 	return (sd->index);
 
 }
+
+
+
 int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
 	struct ccn_parsed_interest interest;
 	struct ccn_parsed_interest *pi = &interest;
@@ -191,8 +198,9 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 	len = pi->offset[CCN_PI_E_Name] - pi->offset[CCN_PI_B_Name];
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, ccnb_size, 1);
-	if (prefix != NULL && strncmp(prefix, ccn_charbuf_as_string(c), strlen(prefix)) != 0) {
-		if (strncmp(prefix, ccn_charbuf_as_string(c) + 5, strlen(prefix)) != 0)
+	if (prefix_num > 0) {
+		int match = match_name(c);
+		if (!match)
 			return 0;
 	}
 
@@ -316,10 +324,12 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, ccnb_size, 1);
 
-	if (prefix != NULL && strncmp(prefix, ccn_charbuf_as_string(c), strlen(prefix)) != 0) {
-		if (strncmp(prefix, ccn_charbuf_as_string(c) + 5, strlen(prefix)) != 0)
+	if (prefix_num > 0) {
+		int match = match_name(c);
+		if (!match)
 			return 0;
 	}
+
 
 	printf("%s", tbuf);
 	if (!flags.succinct) {
@@ -513,16 +523,13 @@ int main(int argc, char *argv[])
 
 	int c;
 
-	while ((c = getopt(argc, argv, "cgvsuthni:p:")) != -1) {
+	while ((c = getopt(argc, argv, "cgvsuthni:")) != -1) {
 		switch (c) {
 		case 'c': 
 			cflag = 1;
 			break;
 		case 'g':
 			gflag = 1;
-			break;
-		case 'p':
-			prefix = optarg;	
 			break;
 		case 'v':
 			vflag = 1;
@@ -546,7 +553,7 @@ int main(int argc, char *argv[])
 			usage();
 			return 0;
 		case '?':
-			if ('i' == optopt || 'p' == optopt )
+			if ('i' == optopt )
 				fprintf(stderr, "Option `-%c' requires an argument.\n", optopt);
 			else if (isprint(optopt))
 				fprintf(stderr, "Unknown option `-%c'.\n", optopt);
@@ -559,6 +566,15 @@ int main(int argc, char *argv[])
 			usage();
 			return 1;
 
+		}
+	}
+
+	prefix_num = argc - optind;
+	if (prefix_num > 0) {
+		prefixes = (char **)malloc(prefix_num * sizeof (char *));
+		int index;
+		for (index = 0; index < prefix_num; index ++) {
+			prefixes[index] = argv[index + optind];
 		}
 	}
 
@@ -597,8 +613,11 @@ int main(int argc, char *argv[])
 	}
 
 	printf("Device: %s\n", dev);
-	if (prefix != NULL)
-		printf("Name Prefix: %s\n", prefix);
+	if (prefixes != NULL) {
+		int i;
+		for (i = 0; i < prefix_num; i++)
+			printf("Name Prefix %d: %s\n", i + 1, prefixes[i]);
+	}
 
 	if (-1 == pcap_lookupnet(dev, &net, &mask, errbuf)) {
 		fprintf(stderr, "couldn't get netmask for device %s: %s\n", dev, errbuf);
@@ -637,17 +656,17 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 }
 
 void usage() {
-	printf("usage: ndndump [-cghnstuv] [-i interface] [-p prefix]\n");
+	printf("usage: ndndump [-cghnstuv] [-i interface] [prefix1] [prefix2] ... [prefixN]\n");
 	printf("\t\t-c: print the whole ccnb\n");
 	printf("\t\t-g: print signature of Content Object\n");
 	printf("\t\t-h: show usage\n");
 	printf("\t\t-i: specify interface\n");
 	printf("\t\t-n: use unit_time timestamp in seconds\n");
-	printf("\t\t-p: dump packets whose name begins with prefix\n");
 	printf("\t\t-s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("\t\t-t: track only tcp tunnel\n");
 	printf("\t\t-u: track only udp tunnel\n");
 	printf("\t\t-v: verbose mode, will also print filters of Interest and SignedInfo of Content Object\n");
+	printf("\t\t[prefix]: dump packets whose name begins with prefix\n");
 	printf("\ndefault: \n");
 	printf("\t\tselect the default interface\n");
 	printf("\t\tprint timestamp and TCP/IP info of the ccn tunnel\n");
@@ -746,4 +765,37 @@ print_payload(const u_char *payload, int len)
 		}
 	}
 
+}
+
+int match_name(struct ccn_charbuf *c) {
+	char *namestr = ccn_charbuf_as_string(c);
+	int match = 0;
+	int i;
+	for (i = 0; i < prefix_num; i++) {
+		if (prefixes[i] != NULL) {
+			// prefix starts with ccnx:
+			if (strlen(prefixes[i]) > 5 && strncmp(prefixes[i], "ccnx:", 5) == 0) {
+				if (strncmp(prefixes[i], namestr, strlen(prefixes[i])) != 0)
+					continue;
+				// check if the last comp of prefix match
+				if (strlen(namestr) > strlen(prefixes[i])) {
+					if (*(namestr + strlen(prefixes[i])) != '/')
+						continue;
+				}
+			}
+			// prefix starts with /
+			else {
+				if(strncmp(prefixes[i], namestr + 5, strlen(prefixes[i])) != 0) 
+					continue;
+				// check if the last comp of prefix match
+				if (strlen(namestr) > strlen(prefixes[i]) + 5) {
+					if (*(namestr + strlen(prefixes[i]) + 5) != '/')
+						continue;
+				}
+			}
+			match = 1; 
+			break;
+		}
+	}
+	return match;
 }
