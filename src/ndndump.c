@@ -24,6 +24,8 @@
 #include <unistd.h>
 #include <ctype.h>
 #include <string.h>
+#include <signal.h>
+#include <sys/types.h>
 
 
 #define MAX_SNAPLEN 65535
@@ -53,6 +55,20 @@ void print_payload(const u_char *payload, int len);
 void print_hex_ascii_line(const u_char *payload, int len, int offset);
 void usage();
 int match_name(struct ccn_charbuf *c);
+
+/* WARNING: THIS IS A HACK
+ * I don't know why ndndump does not work with pipe
+ * anymore. It seems that the printing to stdout
+ * was delayed until pcap_loop returns (which never
+ * returns). I changed the packet count to 10 to test
+ * my theory, and it confirmed my hypothesis.
+ * To fix this, I think it is fair to add a signal 
+ * handler just to fflush(stdout) every time a 
+ * packet is processed.
+ */
+void sig_handler(int signum) {
+	fflush(stdout);
+}
 
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
@@ -112,6 +128,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		default:
 			return;
 	}
+	kill(getpid(), SIGUSR1);
 
 }
 
@@ -504,7 +521,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 
 int main(int argc, char *argv[])
 {
-
+	signal(SIGUSR1, sig_handler);
 	char *dev = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t *handle;						/* Session handle */
