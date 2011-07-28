@@ -107,7 +107,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			size_payload = ntohs(ip_hdr->ip_len) - (size_ip + size_udp);
 			payload = (const char *)(packet + ETHER_HDRLEN + size_ip + size_udp);
 			printed = sprintf(pbuf, "From: %s, ", inet_ntoa(ip_hdr->ip_src));
-			sprintf(pbuf + printed, "To:%s, Tunnel Type: UDP\n",  inet_ntoa(ip_hdr->ip_dst));
+			sprintf(pbuf + printed, "To:%s, Tunnel Type: UDP, ",  inet_ntoa(ip_hdr->ip_dst));
 			dissect_ccn(payload, size_payload, pbuf, tbuf);
 			break;
 		case IPPROTO_TCP:
@@ -122,7 +122,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			payload = (const char *)(packet + ETHER_HDRLEN + size_ip + size_tcp);
 			size_payload = ntohs(ip_hdr->ip_len) - (size_ip + size_tcp);
 			printed = sprintf(pbuf, "From: %s, ", inet_ntoa(ip_hdr->ip_src));
-			sprintf(pbuf + printed, "To:%s, Tunnel Type: TCP\n",  inet_ntoa(ip_hdr->ip_dst));
+			sprintf(pbuf + printed, "To:%s, Tunnel Type: TCP, ",  inet_ntoa(ip_hdr->ip_dst));
 			dissect_ccn(payload, size_payload, pbuf, tbuf);
 			break;
 		default:
