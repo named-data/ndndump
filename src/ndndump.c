@@ -264,6 +264,7 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 
 		/* PublisherPublicKeyDigest */
 		/* Exclude */
+		// TODO: use ccn_skeleton_parser to deal with this thing
 
 		/* ChildSelector */
 		len = pi->offset[CCN_PI_E_ChildSelector] - pi->offset[CCN_PI_B_ChildSelector];
