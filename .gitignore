@@ -13,3 +13,10 @@ src/Makefile.in
 src/ndndump
 src/ndndump.o
 stamp-h1
+compile
+*~
+config.h.in
+configure
+*.swp
+*.o
+

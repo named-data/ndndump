@@ -10,18 +10,12 @@ AM_INIT_AUTOMAKE([-Wall])
 
 # Checks for programs.
 AC_PROG_CC
+AM_PROG_CC_C_O
 
 # Checks for libraries.
-
-# Checks for header files.
-AC_CHECK_HEADERS([pcap.h ccn/ccn.h ])
-
-# Checks for typedefs, structures, and compiler characteristics.
-AC_TYPE_SIZE_T
-AC_TYPE_SSIZE_T
-
-# Checks for library functions.
-AC_FUNC_MALLOC
-AC_CHECK_FUNCS([gettimeofday inet_ntoa memset])
+AX_CCNX([0.4.0],,[AC_MSG_ERROR([Required CCNx library not found])])
+AX_CHECK_OPENSSL(,[AC_MSG_ERROR([Required OpenSSL not found])])
+AX_LIBPCAP(,[AC_MSG_ERROR([Required libpcap library not found])])
 
 AC_OUTPUT(Makefile src/Makefile)
+
