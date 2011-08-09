@@ -20,17 +20,17 @@ extern "C"
 #define CCN_UNKNOWN_SCHEMA (INT_MIN+1)
 
 struct ccn_decoder_stack_item {
-    size_t nameindex; /* byte index into stringstack */
-    size_t savedss;
-    int saved_schema;
-    int saved_schema_state;
-    struct ccn_decoder_stack_item *link;
+  size_t nameindex; /* byte index into stringstack */
+  size_t savedss;
+  int saved_schema;
+  int saved_schema_state;
+  struct ccn_decoder_stack_item *link;
 };
 
 enum callback_kind {
-    CALLBACK_INITIAL,
-    CALLBACK_OBJECTEND,
-    CALLBACK_FINAL
+  CALLBACK_INITIAL,
+  CALLBACK_OBJECTEND,
+  CALLBACK_FINAL
 };
 
 class CcnbDecoder;
@@ -47,7 +47,7 @@ public:
   ~CcnbDecoder ();
 
   size_t
-  Decode (const unsigned char *p, size_t n);
+  DecodeAndPrint (const unsigned char *p, size_t n);
 
   void
   SetCallback (ccn_decoder_callback c, void *data);
@@ -60,22 +60,22 @@ private:
   ccn_decoder_pop ();
   
 private:
-  int state;
-  int tagstate;
-  int bits;
-  size_t numval;
-  uintmax_t bignumval;
-  int schema;
-  int sstate;
-  struct ccn_decoder_stack_item *stack;
-  struct ccn_charbuf *stringstack;
-  const struct ccn_dict_entry *tagdict;
-  int tagdict_count;
-  ccn_decoder_callback callback;
-  void *callbackdata;
-  int formatting_flags;
-  int base64_char_count;
-  struct ccn_charbuf *annotation;
+  int m_state;
+  int m_tagstate;
+  int m_bits;
+  size_t m_numval;
+  uintmax_t m_bignumval;
+  int m_schema;
+  int m_sstate;
+  struct ccn_decoder_stack_item *m_stack;
+  struct ccn_charbuf *m_stringstack;
+  const struct ccn_dict_entry *m_tagdict;
+  int m_tagdict_count;
+  ccn_decoder_callback m_callback;
+  void *m_callbackdata;
+  int m_formatting_flags;
+  int m_base64_char_count;
+  struct ccn_charbuf *m_annotation;
 };
 
 class DecoderException {};

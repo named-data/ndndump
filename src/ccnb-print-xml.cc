@@ -1,6 +1,7 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 
-#include "ccnb-decoder.h"
+#include "config.h"
+#include "ccnb-print-xml.h"
 #include "print-helper.h"
 
 #include <stdio.h>
@@ -13,40 +14,41 @@ extern "C"
 }
   
 CcnbDecoder::CcnbDecoder (int formatting_flags, const struct ccn_dict *dtags)
+  : m_annotation( NULL )
+  , m_state( 0 )
 {
-  stringstack = ccn_charbuf_create ();
-  if (stringstack == NULL) throw new DecoderException ();
-  schema = CCN_NO_SCHEMA;
-  tagdict = dtags->dict;
-  tagdict_count = dtags->count;
-  formatting_flags = formatting_flags;
-  annotation = NULL;
+  m_stringstack = ccn_charbuf_create ();
+  if (m_stringstack == NULL) throw new DecoderException ();
+  m_schema = CCN_NO_SCHEMA;
+  m_tagdict = dtags->dict;
+  m_tagdict_count = dtags->count;
+  m_formatting_flags = formatting_flags;
 }
 
 CcnbDecoder::~CcnbDecoder ()
 {
-  if (callback != NULL ) callback(this, CALLBACK_FINAL, callbackdata);
+  if (m_callback != NULL ) m_callback(this, CALLBACK_FINAL, m_callbackdata);
 
-  while (stack != NULL)
+  while (m_stack != NULL)
     {
       ccn_decoder_pop ();
     }
   
-  ccn_charbuf_destroy (&stringstack);
+  ccn_charbuf_destroy (&m_stringstack);
 }
 
 void
 CcnbDecoder::SetCallback (ccn_decoder_callback c, void *data)
 {
-  callback = c;
+  m_callback = c;
   if (c == NULL)
     {
-      callbackdata = NULL;
+      m_callbackdata = NULL;
     }
   else
     {
-      callbackdata = data;
-      c(this, CALLBACK_INITIAL, data);
+      m_callbackdata = data;
+      c (this, CALLBACK_INITIAL, m_callbackdata);
     }
 }
 
@@ -56,11 +58,11 @@ CcnbDecoder::ccn_decoder_push ()
   struct ccn_decoder_stack_item *s = new ccn_decoder_stack_item ();
   if (s != NULL)
     {
-      s->link = stack;
-      s->savedss = stringstack->length;
-      s->saved_schema = schema;
-      s->saved_schema_state = sstate;
-      stack = s;
+      s->link = m_stack;
+      s->savedss = m_stringstack->length;
+      s->saved_schema = m_schema;
+      s->saved_schema_state = m_sstate;
+      m_stack = s;
     }
   return(s);
 }
@@ -68,23 +70,23 @@ CcnbDecoder::ccn_decoder_push ()
 void
 CcnbDecoder::ccn_decoder_pop ()
 {
-  struct ccn_decoder_stack_item *s = stack;
+  struct ccn_decoder_stack_item *s = m_stack;
   if (s != NULL)
     {
-      stack = s->link;
-      stringstack->length = s->savedss;
-      schema = s->saved_schema;
-      sstate = s->saved_schema_state;
+      m_stack = s->link;
+      m_stringstack->length = s->savedss;
+      m_schema = s->saved_schema;
+      m_sstate = s->saved_schema_state;
       delete s;
     }
 }
 
 size_t
-CcnbDecoder::Decode (const unsigned char *p, size_t n)
+CcnbDecoder::DecodeAndPrint (const unsigned char *p, size_t n)
 {
-  int state = state;
+  int state = m_state;
   int tagstate = 0;
-  size_t numval = numval;
+  size_t numval = m_numval;
   size_t i = 0;
   unsigned char c;
   size_t chunk;
@@ -103,7 +105,7 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
           if (p[i] == CCN_CLOSE)
             {
               i++;
-              s = stack;
+              s = m_stack;
               if (s == NULL || tagstate > 1)
                 {
                   state = -__LINE__;
@@ -114,33 +116,33 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                   tagstate = 0;
                   printf("/>");
                 }
-              else if (schema == -1-CCN_PROCESSING_INSTRUCTIONS)
+              else if (m_schema == -1-CCN_PROCESSING_INSTRUCTIONS)
                 {
                   printf("?>");
-                  if (sstate != 2)
+                  if (m_sstate != 2)
                     {
                       state = -__LINE__;
                       break;
                     }
                 }
               else {
-                printf("</%s>", stringstack->buf + s->nameindex);
+                printf("</%s>", m_stringstack->buf + s->nameindex);
               }
-              if (annotation != NULL)
+              if (m_annotation != NULL)
                 {
-                  if (annotation->length > 0)
+                  if (m_annotation->length > 0)
                     {
                       printf("<!--       ");
-                      PrintHelper::print_percent_escaped(annotation->buf, annotation->length);
+                      PrintHelper::print_percent_escaped(m_annotation->buf, m_annotation->length);
                       printf(" -->");
                     }
-                  ccn_charbuf_destroy(&annotation);
+                  ccn_charbuf_destroy(&m_annotation);
                 }
               ccn_decoder_pop();
-              if (stack == NULL)
+              if (m_stack == NULL)
                 {
-                  if (callback != NULL)
-                    callback(this, CALLBACK_OBJECTEND, callbackdata);
+                  if (m_callback != NULL)
+                    m_callback(this, CALLBACK_OBJECTEND, m_callbackdata);
                   else
                     printf("\n");
                 }
@@ -156,7 +158,7 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
               if (numval > (numval << 7))
                 {
                   state = 9;
-                  bignumval = numval;
+                  m_bignumval = numval;
                   i--;
                   continue;
                 }
@@ -164,7 +166,7 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
               if (numval > (numval << (7-CCN_TT_BITS)))
                 {
                   state = 9;
-                  bignumval = numval;
+                  m_bignumval = numval;
                 }
             }
           else {
@@ -179,9 +181,9 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                   printf(">");
                 }
               s = ccn_decoder_push();
-              s->nameindex = stringstack->length;
-              schema = -1-numval;
-              sstate = 0;
+              s->nameindex = m_stringstack->length;
+              m_schema = -1-numval;
+              m_sstate = 0;
               switch (numval)
                 {
                 case CCN_PROCESSING_INSTRUCTIONS:
@@ -199,34 +201,34 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                   printf(">");
                 }
               s = ccn_decoder_push();
-              s->nameindex = stringstack->length;
-              schema = numval;
-              sstate = 0;
+              s->nameindex = m_stringstack->length;
+              m_schema = numval;
+              m_sstate = 0;
               tagname = NULL;
               if (numval <= INT_MAX)
-                tagname = PrintHelper::dict_name_from_number(numval, tagdict, tagdict_count);
+                tagname = PrintHelper::dict_name_from_number(numval, m_tagdict, m_tagdict_count);
               if (tagname == NULL) {
                 fprintf(stderr,
                         "*** Warning: unrecognized DTAG %lu\n",
                         (unsigned long)numval);
-                ccn_charbuf_append(stringstack,
+                ccn_charbuf_append(m_stringstack,
                                    "UNKNOWN_DTAG",
                                    sizeof("UNKNOWN_DTAG"));
                 printf("<%s code=\"%lu\"",
-                       stringstack->buf + s->nameindex,
-                       (unsigned long)schema);
-                schema = CCN_UNKNOWN_SCHEMA;
+                       m_stringstack->buf + s->nameindex,
+                       (unsigned long)m_schema);
+                m_schema = CCN_UNKNOWN_SCHEMA;
               }
               else {
-                ccn_charbuf_append(stringstack, tagname, strlen(tagname)+1);
+                ccn_charbuf_append(m_stringstack, tagname, strlen(tagname)+1);
                 printf("<%s", tagname);
               }
-              if ((formatting_flags & VERBOSE_DECODE) != 0)
+              if ((m_formatting_flags & VERBOSE_DECODE) != 0)
                 {
-                  if (annotation != NULL)
+                  if (m_annotation != NULL)
                     throw new DecoderException ();
                   if (numval == 15 /* Component */)
-                    annotation = ccn_charbuf_create();
+                    m_annotation = ccn_charbuf_create();
                 }
               tagstate = 1;
               state = 0;
@@ -240,12 +242,12 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
               if (tagstate == 1)
                 {
                   tagstate = 0;
-                  if ((formatting_flags & FORCE_BINARY) == 0 && PrintHelper::is_text_encodable(p, i, numval))
+                  if ((m_formatting_flags & FORCE_BINARY) == 0 && PrintHelper::is_text_encodable(p, i, numval))
                     {
                       printf(" ccnbencoding=\"text\">");
                       state =  6;
                     }
-                  else if ((formatting_flags & PREFER_HEX) != 0)
+                  else if ((m_formatting_flags & PREFER_HEX) != 0)
                     {
                       printf(" ccnbencoding=\"hexBinary\">");
                       state = 2;
@@ -260,7 +262,7 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                 state = 10;
               }
               state = (numval == 0) ? 0 : state;
-              base64_char_count = 0;
+              m_base64_char_count = 0;
               break;
             case CCN_UDATA:
               if (tagstate == 1)
@@ -269,14 +271,14 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                   printf(">");
                 }
               state = 3;
-              if (schema == -1-CCN_PROCESSING_INSTRUCTIONS)
+              if (m_schema == -1-CCN_PROCESSING_INSTRUCTIONS)
                 {
-                  if (sstate > 0)
+                  if (m_sstate > 0)
                     {
                       printf(" ");
                     }
                   state = 6;
-                  sstate += 1;
+                  m_sstate += 1;
                 }
               if (numval == 0)
                 state = 0;
@@ -288,8 +290,8 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                   break;
                 }
               s = ccn_decoder_push();
-              ccn_charbuf_reserve(stringstack, 1);
-              s->nameindex = stringstack->length;
+              ccn_charbuf_reserve(m_stringstack, 1);
+              s->nameindex = m_stringstack->length;
               printf(" UNKNOWN_DATTR_%lu=\"", (unsigned long)numval);
               tagstate = 3;
               state = 0;
@@ -307,8 +309,8 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                 }                            
               numval += 1; /* encoded as length-1 */
               s = ccn_decoder_push();
-              ccn_charbuf_reserve(stringstack, numval + 1);
-              s->nameindex = stringstack->length;
+              ccn_charbuf_reserve(m_stringstack, numval + 1);
+              s->nameindex = m_stringstack->length;
               state = 5;
               break;
             case CCN_TAG:
@@ -324,8 +326,8 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                 }                                                        
               numval += 1; /* encoded as length-1 */
               s = ccn_decoder_push ();
-              ccn_charbuf_reserve(stringstack, numval + 1);
-              s->nameindex = stringstack->length;
+              ccn_charbuf_reserve(m_stringstack, numval + 1);
+              s->nameindex = m_stringstack->length;
               state = 4;
               break;
             default:
@@ -335,8 +337,8 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
           break;
         case 2: /* hex BLOB */
           c = p[i++];
-          if (annotation != NULL)
-            ccn_charbuf_append_value(annotation, c, 1);
+          if (m_annotation != NULL)
+            ccn_charbuf_append_value(m_annotation, c, 1);
           printf("%02X", c);
           if (--numval == 0)
             {
@@ -382,28 +384,28 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
               state = -__LINE__;
               break;
             }
-          ccn_charbuf_append(stringstack, p + i, chunk);
+          ccn_charbuf_append(m_stringstack, p + i, chunk);
           numval -= chunk;
           i += chunk;
           if (numval == 0)
             {
-              ccn_charbuf_append(stringstack, (const unsigned char *)"\0", 1);
-              s = stack;
+              ccn_charbuf_append(m_stringstack, (const unsigned char *)"\0", 1);
+              s = m_stack;
               if (s == NULL ||
-                  strlen((char*)stringstack->buf + s->nameindex) != 
-                  stringstack->length -1 - s->nameindex)
+                  strlen((char*)m_stringstack->buf + s->nameindex) != 
+                  m_stringstack->length -1 - s->nameindex)
                 {
                   state = -__LINE__;
                   break;
                 }
               if (state == 4)
                 {
-                  printf("<%s", stringstack->buf + s->nameindex);
+                  printf("<%s", m_stringstack->buf + s->nameindex);
                   tagstate = 1;
                 }
               else
                 {
-                  printf(" %s=\"", stringstack->buf + s->nameindex);
+                  printf(" %s=\"", m_stringstack->buf + s->nameindex);
                   tagstate = 3;
                 }
               state = 0;
@@ -421,10 +423,10 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
           c = p[i++];
           if ((c & CCN_TT_HBIT) == CCN_CLOSE)
             {
-              bignumval = (bignumval << 7) + (c & 127);
+              m_bignumval = (m_bignumval << 7) + (c & 127);
             }
           else {
-            bignumval = (bignumval << (7-CCN_TT_BITS)) +
+            m_bignumval = (m_bignumval << (7-CCN_TT_BITS)) +
               ((c >> CCN_TT_BITS) & CCN_MAX_TINY);
             c &= CCN_TT_MASK;
             if (tagstate == 1)
@@ -433,7 +435,7 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
                 printf(">");
               }
             /*
-             * There's nothing that we actually need the bignumval
+             * There's nothing that we actually need the m_bignumval
              * for, so we can probably GC this whole state and
              * give up earlier.
              */
@@ -446,57 +448,57 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
           break;
         case 10: /* base 64 BLOB - phase 0 */
           c = p[i++];
-          if (annotation != NULL)
-            ccn_charbuf_append_value(annotation, c, 1);
+          if (m_annotation != NULL)
+            ccn_charbuf_append_value(m_annotation, c, 1);
           printf("%c", PrintHelper::Base64[c >> 2]);
-          base64_char_count++;
+          m_base64_char_count++;
           if (--numval == 0)
             {
               printf("%c==", PrintHelper::Base64[(c & 3) << 4]);
               state = 0;
-              base64_char_count += 3;
+              m_base64_char_count += 3;
             }
           else
             {
-              bits = (c & 3);
+              m_bits = (c & 3);
               state = 11;
             }
-          if ((formatting_flags & FORCE_BINARY) == 0 && base64_char_count >= 64)
+          if ((m_formatting_flags & FORCE_BINARY) == 0 && m_base64_char_count >= 64)
             {
-              base64_char_count = 0;
+              m_base64_char_count = 0;
               printf("\n");
             }
           break;
         case 11: /* base 64 BLOB - phase 1 */
           c = p[i++];
-          if (annotation != NULL)
-            ccn_charbuf_append_value(annotation, c, 1);
-          printf("%c", PrintHelper::Base64[((bits & 3) << 4) + (c >> 4)]);
-          base64_char_count++;
+          if (m_annotation != NULL)
+            ccn_charbuf_append_value(m_annotation, c, 1);
+          printf("%c", PrintHelper::Base64[((m_bits & 3) << 4) + (c >> 4)]);
+          m_base64_char_count++;
           if (--numval == 0)
             {
               printf("%c=", PrintHelper::Base64[(c & 0xF) << 2]);
               state = 0;
-              base64_char_count += 2;
+              m_base64_char_count += 2;
             }
           else
             {
-              bits = (c & 0xF);
+              m_bits = (c & 0xF);
               state = 12;
             }
-          if ((formatting_flags & FORCE_BINARY) == 0 && base64_char_count >= 64)
+          if ((m_formatting_flags & FORCE_BINARY) == 0 && m_base64_char_count >= 64)
             {
-              base64_char_count = 0;
+              m_base64_char_count = 0;
               printf("\n");
             }
           break;
         case 12: /* base 64 BLOB - phase 2 */
           c = p[i++];
-          if (annotation != NULL)
-            ccn_charbuf_append_value(annotation, c, 1);
-          printf("%c%c", PrintHelper::Base64[((bits & 0xF) << 2) + (c >> 6)],
+          if (m_annotation != NULL)
+            ccn_charbuf_append_value(m_annotation, c, 1);
+          printf("%c%c", PrintHelper::Base64[((m_bits & 0xF) << 2) + (c >> 6)],
                  PrintHelper::Base64[c & 0x3F]);
-          base64_char_count += 2;
+          m_base64_char_count += 2;
           if (--numval == 0)
             {
               state = 0;
@@ -505,9 +507,9 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
             {
               state = 10;
             }
-          if ((formatting_flags & FORCE_BINARY) == 0 && base64_char_count >= 64)
+          if ((m_formatting_flags & FORCE_BINARY) == 0 && m_base64_char_count >= 64)
             {
-              base64_char_count = 0;
+              m_base64_char_count = 0;
               printf("\n");
             }
           break;
@@ -515,8 +517,8 @@ CcnbDecoder::Decode (const unsigned char *p, size_t n)
           n = i;
         }
     }
-  state = state;
-  tagstate = tagstate;
-  numval = numval;
+  m_state = state;
+  m_tagstate = tagstate;
+  m_numval = numval;
   return(i);
 }

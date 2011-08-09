@@ -15,6 +15,7 @@
  * Boston, MA 02110-1301, USA.
  */
 
+#include "config.h"
 #include "headers.h"
 
 extern "C"
@@ -32,7 +33,13 @@ extern "C"
 #include <signal.h>
 #include <sys/types.h>
 
-#include "ccnb-decoder.h"
+#ifdef HAVE_BOOST_REGEX
+#include <boost/regex.hpp>
+using namespace boost;
+#endif
+
+#include "print-helper.h"
+#include "ccnb-print-xml.h"
 
 #define MAX_SNAPLEN 65535
 #define CCN_MIN_PACKET_SIZE 5
@@ -46,11 +53,17 @@ struct flags_t {
 	int unit_time;
 	int udp;
 	int tcp;
+	int invert_match;
+	int print_xml;
 };
 
-static struct flags_t flags = {0, 0, 0, 0, 0, 1, 1};
+static struct flags_t flags = {0, 0, 0, 0, 0, 1, 1, 0, 0};
+#ifndef HAVE_BOOST_REGEX
 static char **prefixes = NULL;
 static int prefix_num = 0;
+#else
+static regex prefix_selector;
+#endif
 static CcnbDecoder *ccnbDecoder = NULL; //< will be initialized before loop starts
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
@@ -58,10 +71,36 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
 int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
 int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
 void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf);
-void print_payload(const u_char *payload, int len);
-void print_hex_ascii_line(const u_char *payload, int len, int offset);
 void usage();
-int match_name(struct ccn_charbuf *c);
+
+#ifndef HAVE_BOOST_REGEX
+int match_name (struct ccn_charbuf *c);
+
+#define MATCH(c)								\
+	if (prefix_num > 0)							\
+	{											\
+		int match = match_name(c);				\
+		if (!flags.invert_match)				\
+		{										\
+			if( !match ) return 0;				\
+		}										\
+		else									\
+			if( match ) return 0;				\
+	}
+#else
+#define MATCH(c) \
+	if (!prefix_selector.empty())										\
+	{																	\
+		int match = (int)regex_match (ccn_charbuf_as_string(c), prefix_selector); \
+		if (!flags.invert_match)										\
+		{																\
+			if( !match ) return 0;										\
+		}																\
+		else															\
+			if( match ) return 0;										\
+	}
+#endif
+
 
 /* WARNING: THIS IS A HACK
  * I don't know why ndndump does not work with pipe
@@ -222,11 +261,8 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 	len = pi->offset[CCN_PI_E_Name] - pi->offset[CCN_PI_B_Name];
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, ccnb_size, 1);
-	if (prefix_num > 0) {
-		int match = match_name(c);
-		if (!match)
-			return 0;
-	}
+
+	MATCH (c);
 
 	printf("%s", tbuf);
 	if (!flags.succinct) {
@@ -316,17 +352,14 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 
 	if (flags.ccnb) {
 		printf("Interest: \n");
-		print_payload(ccnb, ccnb_size);
+		PrintHelper::print_payload(ccnb, ccnb_size);
 		printf("\n");
-		
-		// Print XML
-		printf ("decoding payload [%ld] of size %d bytes\n", (long)ccnb, ccnb_size);
-		ccnbDecoder->Decode ((const unsigned char*)ccnb, ccnb_size);
-	
 	}
 
-	return 1;
+	if (flags.print_xml)
+		ccnbDecoder->DecodeAndPrint ((const unsigned char*)ccnb, ccnb_size);
 
+	return 1;
 }
 
 int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
@@ -347,19 +380,12 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 	if (res <0)
 		return res;
 
-
-
 	/* Name */
 	len = pco->offset[CCN_PCO_E_Name] - pco->offset[CCN_PCO_B_Name];
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, ccnb_size, 1);
 
-	if (prefix_num > 0) {
-		int match = match_name(c);
-		if (!match)
-			return 0;
-	}
-
+	MATCH (c);
 
 	printf("%s", tbuf);
 	if (!flags.succinct) {
@@ -395,7 +421,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 										  pco->offset[CCN_PCO_E_DigestAlgorithm],
 										  &blob, &blob_size);
 				printf("DigestAlogrithm: \n\t");
-				print_payload(blob, blob_size);
+				PrintHelper::print_payload(blob, blob_size);
 				/*
 				for (i = 0; i < blob_size; i++) {
 					printf("%02x", *blob);
@@ -415,7 +441,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 										  &blob, &blob_size);
 
 				printf("SignatureBits: \n\t");
-				print_payload(blob, blob_size);
+				PrintHelper::print_payload(blob, blob_size);
 				/*
 				for (i = 0; i < blob_size; i++) {
 					printf("%02x", *blob);
@@ -440,7 +466,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 									  pco->offset[CCN_PCO_E_PublisherPublicKeyDigest],
 									  &blob, &blob_size);
 			printf("PublisherPublicKeyDigest: \n\t");
-			print_payload(blob, blob_size);
+			PrintHelper::print_payload(blob, blob_size);
 			/*
 			for (i = 0; i < blob_size; i++) {
 				printf("%02x", *blob);
@@ -524,9 +550,12 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 
 	if (flags.ccnb) {
 		printf("ContentObject:\n");
-		print_payload(ccnb, ccnb_size);
+		PrintHelper::print_payload(ccnb, ccnb_size);
 		printf("\n");
 	}
+
+	if (flags.print_xml)
+		ccnbDecoder->DecodeAndPrint ((const unsigned char*)ccnb, ccnb_size);
 
 	return (ccnb_size);
 
@@ -550,13 +579,18 @@ int main(int argc, char *argv[])
 	int nflag = -1;
 	int gflag = -1;
 	int cflag = -1;
+	int Iflag = -1;
+	int xflag = -1;
 
 	int c;
 
-	while ((c = getopt(argc, argv, "cgvsuthni:")) != -1) {
+	while ((c = getopt(argc, argv, "cgvsuthni:Ix")) != -1) {
 		switch (c) {
 		case 'c':
 			cflag = 1;
+			break;
+		case 'x':
+			xflag = 1;
 			break;
 		case 'g':
 			gflag = 1;
@@ -579,6 +613,9 @@ int main(int argc, char *argv[])
 		case 'i':
 			dev = optarg;
 			break;
+		case 'I':
+			Iflag = 1;
+			break;		
 		case 'h':
 			usage();
 			return 0;
@@ -599,6 +636,7 @@ int main(int argc, char *argv[])
 		}
 	}
 
+#ifndef HAVE_BOOST_REGEX
 	prefix_num = argc - optind;
 	if (prefix_num > 0) {
 		prefixes = (char **)malloc(prefix_num * sizeof (char *));
@@ -606,7 +644,40 @@ int main(int argc, char *argv[])
 		for (index = 0; index < prefix_num; index ++) {
 			prefixes[index] = argv[index + optind];
 		}
+		
+		if (Iflag == 1)
+		{
+			fprintf (stderr, "%s\n", "To invert condition, at least one prefix should be specified");
+			return 2;
+		}
 	}
+#else
+	if (argc - optind > 0)
+	{
+		if (argc - optind > 1)
+		{
+			printf( "%d %d %d\n", argc, optind, argc - optind );
+			fprintf (stderr, "Only one prefix selector is allowed. Use advanced regular expression to select more\n");
+			return 2;
+		}
+
+		try
+		{
+			prefix_selector = regex (argv[optind]);
+		}
+		catch (regex_error error)
+		{
+			fprintf (stderr, "%s\n", error.what());
+			return 2;
+		}
+	}
+
+	if (prefix_selector.empty() && Iflag == 1)
+	{
+		fprintf (stderr, "%s\n", "Cannot invert empty prefix selector" );
+		return 2;
+	}
+#endif
 
 	if (1 == cflag)
 		flags.ccnb = 1;
@@ -642,12 +713,26 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
+	if (1 == Iflag)
+		flags.invert_match = 1;
+
+	if (1 == xflag)
+		flags.print_xml = 1;
+
 	printf("Device: %s\n", dev);
+
+#ifndef HAVE_BOOST_REGEX	
 	if (prefixes != NULL) {
 		int i;
 		for (i = 0; i < prefix_num; i++)
 			printf("Name Prefix %d: %s\n", i + 1, prefixes[i]);
 	}
+#else
+	if (!prefix_selector.empty())
+	{
+		printf("Prefix selector: %s\n", prefix_selector.str().c_str() );
+	}
+#endif
 
 	if (-1 == pcap_lookupnet(dev, &net, &mask, errbuf)) {
 		fprintf(stderr, "couldn't get netmask for device %s: %s\n", dev, errbuf);
@@ -691,117 +776,38 @@ void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 }
 
 void usage() {
-	printf("usage: ndndump [-cghnstuv] [-i interface] [prefix1] [prefix2] ... [prefixN]\n");
-	printf("\t\t-c: print the whole ccnb\n");
-	printf("\t\t-g: print signature of Content Object\n");
-	printf("\t\t-h: show usage\n");
-	printf("\t\t-i: specify interface\n");
-	printf("\t\t-n: use unit_time timestamp in seconds\n");
-	printf("\t\t-s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
-	printf("\t\t-t: track only tcp tunnel\n");
-	printf("\t\t-u: track only udp tunnel\n");
-	printf("\t\t-v: verbose mode, will also print filters of Interest and SignedInfo of Content Object\n");
-	printf("\t\t[prefix]: dump packets whose name begins with prefix\n");
+	printf("usage: ndndump [-cghnstuvI] [-i interface] "
+#ifndef HAVE_BOOST_REGEX
+		   "[prefix1] [prefix2] ... [prefixN]"
+#else
+		   "[prefix selector]"
+#endif
+		   "\n");
+	printf("  -h: show usage\n");
+	printf("  -I: invert prefix selection condition\n");
+	printf("  -c: print the whole ccnb\n");
+	printf("  -x: print decoded XML of the whole packet\n");
+	printf("  -g: print signature of Content Object\n");
+	printf("  -i: specify interface\n");
+	printf("  -n: use unit_time timestamp in seconds\n");
+	printf("  -s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
+	printf("  -t: track only tcp tunnel\n");
+	printf("  -u: track only udp tunnel\n");
+	printf("  -v: verbose mode, will also print filters of Interest and SignedInfo of Content Object\n");
+#ifndef HAVE_BOOST_REGEX
+	printf("  [prefix]: dump packets whose name begins with prefix\n");
+#else
+	printf("  [prefix selector]: dump packets whose name satisfies this regular expression\n\n");
+#endif
 	printf("\ndefault: \n");
-	printf("\t\tselect the default interface\n");
-	printf("\t\tprint timestamp and TCP/IP info of the ccn tunnel\n");
-	printf("\t\tprint names of Interest and ContentObject\n");
+	printf("  select the default interface\n");
+	printf("  print timestamp and TCP/IP info of the ccn tunnel\n");
+	printf("  print names of Interest and ContentObject\n");
 }
 
-/*
-* print data in rows of 16 bytes: offset   hex   ascii
-*
-* 00000   47 45 54 20 2f 20 48 54  54 50 2f 31 2e 31 0d 0a   GET / HTTP/1.1..
-*/
-void
-print_hex_ascii_line(const u_char *payload, int len, int offset)
-{
 
-	int i;
-	int gap;
-	const u_char *ch;
 
-	/* offset */
-	printf("%05d   ", offset);
-
-	/* hex */
-	ch = payload;
-	for(i = 0; i < len; i++) {
-		printf("%02x ", *ch);
-		ch++;
-		/* print extra space after 8th byte for visual aid */
-		if (i == 7)
-			printf(" ");
-	}
-	/* print space to handle line less than 8 bytes */
-	if (len < 8)
-		printf(" ");
-
-	/* fill hex gap with spaces if not full line */
-	if (len < 16) {
-		gap = 16 - len;
-		for (i = 0; i < gap; i++) {
-			printf("   ");
-		}
-	}
-	printf("   ");
-
-	/* ascii (if printable) */
-	ch = payload;
-	for(i = 0; i < len; i++) {
-		if (isprint(*ch))
-			printf("%c", *ch);
-		else
-			printf(".");
-		ch++;
-	}
-	printf("\n");
-}
-
-/*
- * print packet payload data (avoid printing binary data)
- */
-void
-print_payload(const u_char *payload, int len)
-{
-
-	int len_rem = len;
-	int line_width = 16;			/* number of bytes per line */
-	int line_len;
-	int offset = 0;					/* zero-based offset counter */
-	const u_char *ch = payload;
-
-	if (len <= 0)
-		return;
-
-	/* data fits on one line */
-	if (len <= line_width) {
-		print_hex_ascii_line(ch, len, offset);
-		return;
-	}
-
-	/* data spans multiple lines */
-	for ( ;; ) {
-		/* compute current line length */
-		line_len = line_width % len_rem;
-		/* print line */
-		print_hex_ascii_line(ch, line_len, offset);
-		/* compute total remaining */
-		len_rem = len_rem - line_len;
-		/* shift pointer to remaining bytes to print */
-		ch = ch + line_len;
-		/* add offset */
-		offset = offset + line_width;
-		/* check if we have line width chars or less */
-		if (len_rem <= line_width) {
-			/* print last line and get out */
-			print_hex_ascii_line(ch, len_rem, offset);
-			break;
-		}
-	}
-
-}
-
+#ifndef HAVE_BOOST_REGEX
 int match_name(struct ccn_charbuf *c) {
 	char *namestr = ccn_charbuf_as_string(c);
 	int match = 0;
@@ -834,3 +840,4 @@ int match_name(struct ccn_charbuf *c) {
 	}
 	return match;
 }
+#endif

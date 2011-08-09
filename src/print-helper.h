@@ -20,6 +20,12 @@ public:
   static void
   print_percent_escaped (const unsigned char *data, size_t size);
 
+  static void
+  print_hex_ascii_line (const unsigned char *payload, int len, int offset);
+
+  static void
+  print_payload (const unsigned char *payload, int len);
+
   static const char Base64[];
 };
 
