@@ -1,4 +1,4 @@
-/* ndndump.c 
+/* ndndump.c
  * Adapted from ccn plugin for wireshark in the ccnx package
  *
  * Copyright (C) 2011 IRL, CS, UCLA.
@@ -16,10 +16,15 @@
  */
 
 #include "headers.h"
+
+extern "C"
+{
 #include <ccn/ccn.h>
 #include <ccn/ccnd.h>
 #include <ccn/coding.h>
 #include <ccn/uri.h>
+}
+
 #include <sys/time.h>
 #include <unistd.h>
 #include <ctype.h>
@@ -27,6 +32,7 @@
 #include <signal.h>
 #include <sys/types.h>
 
+#include "ccnb-decoder.h"
 
 #define MAX_SNAPLEN 65535
 #define CCN_MIN_PACKET_SIZE 5
@@ -45,6 +51,7 @@ struct flags_t {
 static struct flags_t flags = {0, 0, 0, 0, 0, 1, 1};
 static char **prefixes = NULL;
 static int prefix_num = 0;
+static CcnbDecoder *ccnbDecoder = NULL; //< will be initialized before loop starts
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
@@ -62,8 +69,8 @@ int match_name(struct ccn_charbuf *c);
  * was delayed until pcap_loop returns (which never
  * returns). I changed the packet count to 10 to test
  * my theory, and it confirmed my hypothesis.
- * To fix this, I think it is fair to add a signal 
- * handler just to fflush(stdout) every time a 
+ * To fix this, I think it is fair to add a signal
+ * handler just to fflush(stdout) every time a
  * packet is processed.
  */
 void sig_handler(int signum) {
@@ -142,7 +149,7 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
 
 	if (size_payload < CCN_MIN_PACKET_SIZE)
 		return 0;
-	
+
 	sd = &skel_decoder;
 	memset(sd, 0, sizeof(*sd));
 	/* set CCN_DSTATE_PAUSE so that the decoder returns
@@ -167,11 +174,11 @@ int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
 	if (!CCN_FINAL_DSTATE(sd->state)) {
 		return -1;
 	}
-	
+
 	/* CCN URI in c */
 	c = ccn_charbuf_create();
 	ccn_uri_append(c, ccnb, size_payload, 1);
-	
+
 	switch (packet_type) {
 		case CCN_DTAG_ContentObject:
 
@@ -208,7 +215,7 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 
 	comps = ccn_indexbuf_create();
 	res = ccn_parse_interest(ccnb, ccnb_size, pi, comps);
-	if (res < 0) 
+	if (res < 0)
 		return res;
 
 	/* Name */
@@ -231,7 +238,7 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 	/*
 	for (i = 0; i < comps->n - 1; i++) {
 		res = ccn_name_comp_get(ccnb, comps, i, &comp, &comp_size);
-		// TODO: do something 
+		// TODO: do something
 	}
 	*/
 
@@ -284,7 +291,7 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 		len = pi->offset[CCN_PI_E_AnswerOriginKind] - pi->offset[CCN_PI_B_AnswerOriginKind];
 		if (len > 0) {
 			int origin = pi->answerfrom;
-			printf("AnswerOriginKind: %d, ", origin);	
+			printf("AnswerOriginKind: %d, ", origin);
 		}
 
 		/* Scope */
@@ -305,12 +312,17 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 			printf("InterestLifetime: %f\n", lifetime);
 		}
 	}
-	
+
 
 	if (flags.ccnb) {
 		printf("Interest: \n");
 		print_payload(ccnb, ccnb_size);
 		printf("\n");
+		
+		// Print XML
+		printf ("decoding payload [%ld] of size %d bytes\n", (long)ccnb, ccnb_size);
+		ccnbDecoder->Decode ((const unsigned char*)ccnb, ccnb_size);
+	
 	}
 
 	return 1;
@@ -332,11 +344,11 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 
 	comps = ccn_indexbuf_create();
 	res = ccn_parse_ContentObject(ccnb, ccnb_size, pco, comps);
-	if (res <0) 
+	if (res <0)
 		return res;
-	
 
-	
+
+
 	/* Name */
 	len = pco->offset[CCN_PCO_E_Name] - pco->offset[CCN_PCO_B_Name];
 	c = ccn_charbuf_create();
@@ -367,7 +379,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 		/* TODO: do something */
 	}
 
-	
+
 	if (flags.signature) {
 		/* Signature */
 		len = pco->offset[CCN_PCO_E_Signature] - pco->offset[CCN_PCO_B_Signature];
@@ -401,7 +413,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 										  pco->offset[CCN_PCO_B_SignatureBits],
 										  pco->offset[CCN_PCO_E_SignatureBits],
 										  &blob, &blob_size);
-				
+
 				printf("SignatureBits: \n\t");
 				print_payload(blob, blob_size);
 				/*
@@ -487,7 +499,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 			i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_FreshnessSeconds, ccnb,
 													pco->offset[CCN_PCO_B_FreshnessSeconds],
 													pco->offset[CCN_PCO_E_FreshnessSeconds]);
-			
+
 			printf("FressSeconds: %d, ", i);
 		}
 
@@ -498,9 +510,9 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 									  pco->offset[CCN_PCO_B_FinalBlockID],
 									  pco->offset[CCN_PCO_E_FinalBlockID],
 									  &blob, &blob_size);
-			
+
 			/* TODO: do something */
-			if (res == 0) 
+			if (res == 0)
 				printf("FinalBlockID: Yes");
 			else
 				printf("FinalBlockID: No");
@@ -508,7 +520,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 		/* KeyLocator */
 		printf("\n");
 	}
-	
+
 
 	if (flags.ccnb) {
 		printf("ContentObject:\n");
@@ -527,7 +539,7 @@ int main(int argc, char *argv[])
 	char errbuf[PCAP_ERRBUF_SIZE];
 	pcap_t *handle;						/* Session handle */
 	struct bpf_program fp;				/* Compiled filter expression */
-	char filter_exp[] = "ip";			
+	char filter_exp[] = "ip";
 	bpf_u_int32 mask;					/* Netmask of the sniffing device */
 	bpf_u_int32 net;					/* IP of the sniffing device */
 
@@ -543,7 +555,7 @@ int main(int argc, char *argv[])
 
 	while ((c = getopt(argc, argv, "cgvsuthni:")) != -1) {
 		switch (c) {
-		case 'c': 
+		case 'c':
 			cflag = 1;
 			break;
 		case 'g':
@@ -556,7 +568,7 @@ int main(int argc, char *argv[])
 			sflag = 1;
 			break;
 		case 'u':
-			uflag = 1;	
+			uflag = 1;
 			break;
 		case 't':
 			tflag = 1;
@@ -596,11 +608,11 @@ int main(int argc, char *argv[])
 		}
 	}
 
-	if (1 == cflag) 
+	if (1 == cflag)
 		flags.ccnb = 1;
 	if (1 == gflag)
 		flags.signature = 1;
-	if (1 == nflag) 
+	if (1 == nflag)
 		flags.unit_time = 1;
 
 	if (1 == vflag && 1 == sflag) {
@@ -621,7 +633,7 @@ int main(int argc, char *argv[])
 		flags.udp = 0;
 		flags.tcp = 1;
 	}
-	
+
 	if (NULL == dev)
 		dev = pcap_lookupdev(errbuf);
 
@@ -640,7 +652,7 @@ int main(int argc, char *argv[])
 	if (-1 == pcap_lookupnet(dev, &net, &mask, errbuf)) {
 		fprintf(stderr, "couldn't get netmask for device %s: %s\n", dev, errbuf);
 	}
-	
+
 	handle = pcap_open_live(dev, MAX_SNAPLEN, 0, 1000, errbuf);
 	if (NULL == handle) {
 		fprintf(stderr, "couldn't open device %s: %s\n", dev, errbuf);
@@ -655,17 +667,22 @@ int main(int argc, char *argv[])
 		return 2;
 	}
 
+	struct ccn_dict *dtags = (struct ccn_dict *)&ccn_dtag_dict;
+	ccnbDecoder = new CcnbDecoder( VERBOSE_DECODE, dtags );
+	
 	pcap_loop(handle, -1, got_packet, NULL);
+
+	delete ccnbDecoder;
 	
 	pcap_freecode(&fp);
 	pcap_close(handle);
-	
+
 	return 0;
 }
 
 void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
 	struct tm *tm;
-	if (flags.unit_time) { 
+	if (flags.unit_time) {
 		sprintf(tbuf, "%d.%06d, ", (int) header->ts.tv_sec, (int)header->ts.tv_usec);
 	} else {
 		tm = localtime(&(header->ts.tv_sec));
@@ -706,7 +723,7 @@ print_hex_ascii_line(const u_char *payload, int len, int offset)
 
 	/* offset */
 	printf("%05d   ", offset);
-						
+
 	/* hex */
 	ch = payload;
 	for(i = 0; i < len; i++) {
@@ -719,7 +736,7 @@ print_hex_ascii_line(const u_char *payload, int len, int offset)
 	/* print space to handle line less than 8 bytes */
 	if (len < 8)
 		printf(" ");
-																															
+
 	/* fill hex gap with spaces if not full line */
 	if (len < 16) {
 		gap = 16 - len;
@@ -728,7 +745,7 @@ print_hex_ascii_line(const u_char *payload, int len, int offset)
 		}
 	}
 	printf("   ");
-																																					
+
 	/* ascii (if printable) */
 	ch = payload;
 	for(i = 0; i < len; i++) {
@@ -803,7 +820,7 @@ int match_name(struct ccn_charbuf *c) {
 			}
 			// prefix starts with /
 			else {
-				if(strncmp(prefixes[i], namestr + 5, strlen(prefixes[i])) != 0) 
+				if(strncmp(prefixes[i], namestr + 5, strlen(prefixes[i])) != 0)
 					continue;
 				// check if the last comp of prefix match
 				if (strlen(namestr) > strlen(prefixes[i]) + 5) {
@@ -811,7 +828,7 @@ int match_name(struct ccn_charbuf *c) {
 						continue;
 				}
 			}
-			match = 1; 
+			match = 1;
 			break;
 		}
 	}

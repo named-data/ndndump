@@ -1,5 +1,5 @@
 #ifndef HEADERS_H
-#define HEADES_H
+#define HEADERS_H
 
 #include <pcap.h>
 #include <stdio.h>
@@ -84,4 +84,5 @@ struct tcphdr {
 #define TH_ECNECHO 0x40	/* ECN Echo */
 #define TH_CWR	   0x80	/* ECN Cwnd Reduced */
 
-#endif
+#endif // HEADERS_H
+

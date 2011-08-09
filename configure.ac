@@ -11,6 +11,7 @@ AM_INIT_AUTOMAKE([-Wall])
 # Checks for programs.
 AC_PROG_CC
 AM_PROG_CC_C_O
+AC_PROG_CXX
 
 # Checks for libraries.
 AX_CCNX([0.4.0],,[AC_MSG_ERROR([Required CCNx library not found])])

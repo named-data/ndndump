@@ -19,4 +19,4 @@ config.h.in
 configure
 *.swp
 *.o
-
+cscope*
