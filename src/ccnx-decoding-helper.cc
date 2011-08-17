@@ -81,6 +81,7 @@ Blob::Blob (Buffer::Iterator &start, uint32_t length)
 #ifndef NOT_NS3
   start.Read (m_blob.Begin (), length);
 #else
+  m_blobSize = length;
   m_blob = boost::shared_ptr<char> (new char[length]);
   uint32_t read = boost::iostreams::read (start, m_blob.get (), length);
   if (read!=length)
@@ -94,9 +95,34 @@ Udata::Udata (Buffer::Iterator &start, uint32_t length)
   // this is actually the way Read method is implemented in network/src/buffer.cc
   for (uint32_t i = 0; i < length; i++)
     {
-      m_udata.append (reinterpret_cast<const char*>(start.ReadU8 ()));
+      m_udata.push_back (*reinterpret_cast<const char*>(start.ReadU8 ()));
     }
 }
+
+void
+BaseTag::ParseInternal (Buffer::Iterator &start)
+{
+  // parse attributes
+  while (!start.IsEnd () && start.PeekU8 ()!=Ccnx::CCN_CLOSE)
+    {
+      Ptr<Block> block = Block::ParseBlock (start);
+      if (DynamicCast<BaseAttr> (block)!=0)
+        m_attrs.push_back (block);
+      else
+        {
+          m_nestedTags.push_back (block);
+          if (DynamicCast<Udata> (block)!=0)
+            m_encoding = UTF8;
+          else if (DynamicCast<Blob> (block)!=0)
+            m_encoding = BASE64;
+        }
+    }
+  if (start.IsEnd ())
+      throw CcnxDecodingException ();
+
+  start.ReadU8 (); // read CCN_CLOSE
+}
+
 
 // length length in octets of UTF-8 encoding of tag name - 1 (minimum tag name length is 1) 
 Tag::Tag (Buffer::Iterator &start, uint32_t length)
@@ -104,17 +130,17 @@ Tag::Tag (Buffer::Iterator &start, uint32_t length)
   m_tag.reserve (length+2); // extra byte for potential \0 at the end
   for (uint32_t i = 0; i < (length+1); i++)
     {
-      m_tag.append (reinterpret_cast<const char*>(start.ReadU8 ()));
+      m_tag.push_back (*reinterpret_cast<const char*>(start.ReadU8 ()));
     }
-  
-  while (!start.IsEnd () && start.PeekU8 ()!=Ccnx::CCN_CLOSE)
-    {
-      m_nestedBlocks.push_back (Block::ParseBlock (start));
-    }
-  if (start.IsEnd ())
-      throw CcnxDecodingException ();
 
-  start.ReadU8 (); // read CCN_CLOSE
+  ParseInternal (start);
+}
+
+Dtag::Dtag (Buffer::Iterator &start, uint32_t dtag)
+{
+  m_dtag = dtag;
+
+  ParseInternal (start);
 }
 
 // length length in octets of UTF-8 encoding of tag name - 1 (minimum tag name length is 1) 
@@ -123,47 +149,11 @@ Attr::Attr (Buffer::Iterator &start, uint32_t length)
   m_attr.reserve (length+2); // extra byte for potential \0 at the end
   for (uint32_t i = 0; i < (length+1); i++)
     {
-      m_attr.append (reinterpret_cast<const char*>(start.ReadU8 ()));
+      m_attr.push_back (*reinterpret_cast<const char*>(start.ReadU8 ()));
     }
   m_value = DynamicCast<Udata> (Block::ParseBlock (start));
   if (m_value == 0)
     throw CcnxDecodingException (); // "ATTR must be followed by UDATA field"
-}
-
-Dtag::Dtag (Buffer::Iterator &start, uint32_t dtag)
-{
-  m_dtag = dtag;
-
-#ifndef NOT_NS3  
-  /**
-   * Hack
-   *
-   * Stop processing after encountering <Content> dtag.  Actual
-   * content (including virtual payload) will be stored in Packet
-   * buffer
-   */
-  if (dtag == Ccnx::CCN_DTAG_Content)
-    return; // hack #1. Do not process nesting block for <Content>
-#endif
-  
-  while (!start.IsEnd () && start.PeekU8 ()!=Ccnx::CCN_CLOSE)
-    {
-      m_nestedBlocks.push_back (Block::ParseBlock (start));
-
-#ifndef NOT_NS3
-      // hack #2. Stop processing nested blocks if last block was <Content>
-      if (m_dtag == Ccnx::CCN_DTAG_ContentObject && // we are in <ContentObject>
-          DynamicCast<Dtag> (m_nestedBlocks.back())!=0 && // last block is DTAG
-          DynamicCast<Dtag> (m_nestedBlocks.back())->m_dtag == Ccnx::CCN_DTAG_Content) 
-        {
-          return; 
-        }
-#endif
-    }
-  if (start.IsEnd ())
-      throw CcnxDecodingException ();
-
-  start.ReadU8 (); // read CCN_CLOSE
 }
 
 // dictionary attributes are not used (yet?) in CCNx 
@@ -196,8 +186,9 @@ void
 DepthFirstVisitor::visit (Tag &n)
 {
   // std::string n.m_tag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this);
     }
@@ -214,8 +205,9 @@ void
 DepthFirstVisitor::visit (Dtag &n)
 {
   // uint32_t n.m_dtag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this);
     }
@@ -254,8 +246,9 @@ boost::any
 GJNoArguDepthFirstVisitor::visit (Tag &n)
 {
   // std::string n.m_tag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this);
     }
@@ -278,8 +271,9 @@ boost::any
 GJNoArguDepthFirstVisitor::visit (Dtag &n)
 {
   // uint32_t n.m_dtag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this);
     }
@@ -323,8 +317,9 @@ void
 GJVoidDepthFirstVisitor::visit (Tag &n, boost::any param)
 {
   // std::string n.m_tag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this, param);
     }
@@ -341,8 +336,8 @@ void
 GJVoidDepthFirstVisitor::visit (Dtag &n, boost::any param)
 {
   // uint32_t n.m_dtag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this, param);
     }
@@ -381,8 +376,9 @@ boost::any
 GJDepthFirstVisitor::visit (Tag &n, boost::any param)
 {
   // std::string n.m_tag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this, param);
     }
@@ -405,8 +401,9 @@ boost::any
 GJDepthFirstVisitor::visit (Dtag &n, boost::any param)
 {
   // uint32_t n.m_dtag;
-  // std::list<Ptr<Block> > n.m_nestedBlocks;
-  BOOST_FOREACH (Ptr<Block> block, n.m_nestedBlocks)
+  // std::list<Ptr<Block> > n.m_attrs;
+  // std::list<Ptr<Block> > n.m_nestedTags;
+  BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this, param);
     }

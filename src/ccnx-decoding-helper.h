@@ -97,10 +97,10 @@ class GJVisitor
 public:
   virtual boost::any visit (Blob&,  boost::any)=0;
   virtual boost::any visit (Udata&, boost::any)=0;
-  virtual boost::any visit (Tag&,   boost::any)=0;
   virtual boost::any visit (Attr&,  boost::any)=0;
-  virtual boost::any visit (Dtag&,  boost::any)=0;
   virtual boost::any visit (Dattr&, boost::any)=0;
+  virtual boost::any visit (Tag&,   boost::any)=0;
+  virtual boost::any visit (Dtag&,  boost::any)=0;
   virtual boost::any visit (Ext&,   boost::any)=0;
 };
   
@@ -158,6 +158,7 @@ public:
   Buffer m_blob;
 #else
   Ptr<char> m_blob;
+  uint32_t  m_blobSize;
 #endif
 };
 
@@ -174,7 +175,22 @@ public:
   std::string m_udata;
 };
 
-class Tag : public Block
+class BaseTag : public Block
+{
+public:
+  enum { NOT_SET=0, UTF8, BASE64 };
+  
+  std::list<Ptr<Block> > m_attrs;
+  uint8_t                m_encoding; ///< BLOB encoding, possible values NOT_SET=0, UTF8, BASE64
+  std::list<Ptr<Block> > m_nestedTags;
+
+protected:
+  BaseTag() : m_encoding(NOT_SET) { }
+  void
+  ParseInternal (Buffer::Iterator &start);
+};
+
+class Tag : public BaseTag
 {
 public:
   Tag (Buffer::Iterator &start, uint32_t length);
@@ -185,24 +201,9 @@ public:
   virtual boost::any accept( GJVisitor &v, boost::any param ) { return v.visit( *this, param ); }
 
   std::string m_tag;
-  std::list<Ptr<Block> > m_nestedBlocks;
 };
 
-class Attr : public Block
-{
-public:
-  Attr (Buffer::Iterator &start, uint32_t length);
-  
-  virtual void accept( Visitor &v )                           { v.visit( *this ); }
-  virtual void accept( GJVoidVisitor &v, boost::any param )   { v.visit( *this, param ); }
-  virtual boost::any accept( GJNoArguVisitor &v )             { return v.visit( *this ); }
-  virtual boost::any accept( GJVisitor &v, boost::any param ) { return v.visit( *this, param ); }
-
-  std::string m_attr;
-  Ptr<Udata> m_value;
-};
-
-class Dtag : public Block
+class Dtag : public BaseTag
 {
 public:
   Dtag (Buffer::Iterator &start, uint32_t dtag);
@@ -213,10 +214,28 @@ public:
   virtual boost::any accept( GJVisitor &v, boost::any param ) { return v.visit( *this, param ); }
 
   uint32_t m_dtag;
-  std::list<Ptr<Block> > m_nestedBlocks;
 };
 
-class Dattr : public Block
+class BaseAttr : public Block // just to hold common attributes
+{
+public:
+  Ptr<Udata> m_value;
+};
+
+class Attr : public BaseAttr
+{
+public:
+  Attr (Buffer::Iterator &start, uint32_t length);
+  
+  virtual void accept( Visitor &v )                           { v.visit( *this ); }
+  virtual void accept( GJVoidVisitor &v, boost::any param )   { v.visit( *this, param ); }
+  virtual boost::any accept( GJNoArguVisitor &v )             { return v.visit( *this ); }
+  virtual boost::any accept( GJVisitor &v, boost::any param ) { return v.visit( *this, param ); }
+
+  std::string m_attr;
+};
+
+class Dattr : public BaseAttr
 {
 public:
   Dattr (Buffer::Iterator &start, uint32_t dattr);
@@ -227,7 +246,6 @@ public:
   virtual boost::any accept( GJVisitor &v, boost::any param ) { return v.visit( *this, param ); }
 
   uint32_t m_dattr;
-  Ptr<Udata> m_value;
 };
 
 class Ext : public Block

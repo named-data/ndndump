@@ -29,5 +29,7 @@ public:
   static const char Base64[];
 };
 
+class UnknownDtag {};
+
 #endif // _PRINT_HELPER_H_
 

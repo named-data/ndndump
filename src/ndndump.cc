@@ -64,7 +64,7 @@ static int prefix_num = 0;
 #else
 static regex prefix_selector;
 #endif
-static CcnbDecoder *ccnbDecoder = NULL; //< will be initialized before loop starts
+static CcnbXmlPrinter *ccnbDecoder = NULL; //< will be initialized before loop starts
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
@@ -357,7 +357,7 @@ int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, c
 	}
 
 	if (flags.print_xml)
-		ccnbDecoder->DecodeAndPrint ((const unsigned char*)ccnb, ccnb_size);
+		ccnbDecoder->DecodeAndPrint ((const char*)ccnb, ccnb_size);
 
 	return 1;
 }
@@ -555,7 +555,7 @@ int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, ch
 	}
 
 	if (flags.print_xml)
-		ccnbDecoder->DecodeAndPrint ((const unsigned char*)ccnb, ccnb_size);
+		ccnbDecoder->DecodeAndPrint ((const char*)ccnb, ccnb_size);
 
 	return (ccnb_size);
 
@@ -753,7 +753,7 @@ int main(int argc, char *argv[])
 	}
 
 	struct ccn_dict *dtags = (struct ccn_dict *)&ccn_dtag_dict;
-	ccnbDecoder = new CcnbDecoder( VERBOSE_DECODE, dtags );
+	ccnbDecoder = new CcnbXmlPrinter( VERBOSE_DECODE, dtags );
 	
 	pcap_loop(handle, -1, got_packet, NULL);
 

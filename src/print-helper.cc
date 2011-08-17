@@ -20,7 +20,8 @@ PrintHelper::dict_name_from_number (int ndx, const struct ccn_dict_entry *dict, 
   for (i = 0; i < n; i++)
     if (ndx == dict[i].index)
       return (dict[i].name);
-  return (NULL);
+
+  throw UnknownDtag ();
 }
 
 const char PrintHelper::Base64[] =
