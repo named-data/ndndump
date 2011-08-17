@@ -23,6 +23,7 @@
 #include <sstream>
 #include <boost/foreach.hpp>
 #include <boost/iostreams/read.hpp>
+#include "print-helper.h"
 
 namespace Ccnx // again, add compatibility with NS-3 code
 {
@@ -95,7 +96,7 @@ Udata::Udata (Buffer::Iterator &start, uint32_t length)
   // this is actually the way Read method is implemented in network/src/buffer.cc
   for (uint32_t i = 0; i < length; i++)
     {
-      m_udata.push_back (*reinterpret_cast<const char*>(start.ReadU8 ()));
+      m_udata.push_back (start.ReadU8 ());
     }
 }
 
@@ -114,7 +115,16 @@ BaseTag::ParseInternal (Buffer::Iterator &start)
           if (DynamicCast<Udata> (block)!=0)
             m_encoding = UTF8;
           else if (DynamicCast<Blob> (block)!=0)
-            m_encoding = BASE64;
+            {
+              if (PrintHelper::is_text_encodable((unsigned char*)DynamicCast<Blob> (block)->m_blob.get(),
+                                                 0,
+                                                 DynamicCast<Blob> (block)->m_blobSize))
+                {
+                  m_encoding = UTF8;
+                }
+              else
+                m_encoding = BASE64;
+            }
         }
     }
   if (start.IsEnd ())
@@ -130,7 +140,7 @@ Tag::Tag (Buffer::Iterator &start, uint32_t length)
   m_tag.reserve (length+2); // extra byte for potential \0 at the end
   for (uint32_t i = 0; i < (length+1); i++)
     {
-      m_tag.push_back (*reinterpret_cast<const char*>(start.ReadU8 ()));
+      m_tag.push_back (start.ReadU8 ());
     }
 
   ParseInternal (start);
@@ -149,7 +159,7 @@ Attr::Attr (Buffer::Iterator &start, uint32_t length)
   m_attr.reserve (length+2); // extra byte for potential \0 at the end
   for (uint32_t i = 0; i < (length+1); i++)
     {
-      m_attr.push_back (*reinterpret_cast<const char*>(start.ReadU8 ()));
+      m_attr.push_back (start.ReadU8 ());
     }
   m_value = DynamicCast<Udata> (Block::ParseBlock (start));
   if (m_value == 0)

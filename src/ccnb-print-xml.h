@@ -18,7 +18,7 @@ extern "C"
 #define CCN_NO_SCHEMA INT_MIN
 #define CCN_UNKNOWN_SCHEMA (INT_MIN+1)
 
-class CcnbXmlPrinter : public Visitor
+class CcnbXmlPrinter : public GJVoidVisitor
 {
 public:
   CcnbXmlPrinter (int formatting_flags, const ccn_dict *dtags);
@@ -28,16 +28,16 @@ public:
   DecodeAndPrint (const char *p, size_t n);
 
 public:
-  virtual void visit (Blob& n);
-  virtual void visit (Udata&n);
-  virtual void visit (Attr& n);
-  virtual void visit (Tag&  n);
-  virtual void visit (Dtag& n);
-  virtual void visit (Dattr&n);
-  virtual void visit (Ext&  n);
+  virtual void visit (Blob& n, boost::any param);
+  virtual void visit (Udata&n, boost::any param);
+  virtual void visit (Attr& n, boost::any param);
+  virtual void visit (Tag&  n, boost::any param);
+  virtual void visit (Dtag& n, boost::any param);
+  virtual void visit (Dattr&n, boost::any param);
+  virtual void visit (Ext&  n, boost::any param);
 
 private:
-  void ProcessTag (BaseTag &n);
+  void ProcessTag (BaseTag &n, boost::any param);
   
 private:
   const ccn_dict_entry *m_tagdict;
