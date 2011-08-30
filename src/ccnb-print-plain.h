@@ -21,11 +21,11 @@ extern "C"
 #define CCN_NO_SCHEMA INT_MIN
 #define CCN_UNKNOWN_SCHEMA (INT_MIN+1)
 
-class CcnbXmlPrinter : public CcnbParser::VoidVisitor
+class CcnbPlainPrinter : public CcnbParser::VoidVisitor
 {
 public:
-  CcnbXmlPrinter (int formatting_flags, const ccn_dict *dtags);
-  ~CcnbXmlPrinter ();
+  CcnbPlainPrinter ();
+  ~CcnbPlainPrinter ();
 
   size_t
   DecodeAndPrint (const char *p, size_t n);
@@ -34,20 +34,12 @@ public:
   virtual void visit (CcnbParser::Blob& n, boost::any param);
   virtual void visit (CcnbParser::Udata&n, boost::any param);
   virtual void visit (CcnbParser::Attr& n, boost::any param);
-  virtual void visit (CcnbParser::Tag&  n, boost::any param);
-  virtual void visit (CcnbParser::Dtag& n, boost::any param);
-  virtual void visit (CcnbParser::Dattr&n, boost::any param);
   virtual void visit (CcnbParser::Ext&  n, boost::any param);
 
 private:
   void ProcessTag (CcnbParser::BaseTag &n, boost::any param);
-  
-private:
-  const ccn_dict_entry *m_tagdict;
-  int m_tagdict_count;
-  int m_formatting_flags;
 };
 
-class DecoderException {};
+class PlainDecoderException {};
 
 #endif // _CCNB_DECODER_H_

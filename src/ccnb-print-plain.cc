@@ -25,21 +25,17 @@
 using namespace std;
 using namespace ns3::CcnbParser;
 
-CcnbXmlPrinter::CcnbXmlPrinter (int formatting_flags, const ccn_dict *dtags)
+CcnbPlainPrinter::CcnbPlainPrinter ()
 {
-  // m_schema = CCN_NO_SCHEMA;
-  m_tagdict = dtags->dict;
-  m_tagdict_count = dtags->count;
-  m_formatting_flags = formatting_flags;
 }
 
-CcnbXmlPrinter::~CcnbXmlPrinter ()
+CcnbPlainPrinter::~CcnbPlainPrinter ()
 {
 }
 
 
 size_t
-CcnbXmlPrinter::DecodeAndPrint (const char *p, size_t n)
+CcnbPlainPrinter::DecodeAndPrint (const char *p, size_t n)
 {
   boost::iostreams::stream<boost::iostreams::array_source> in( p, n );
 
@@ -54,7 +50,7 @@ typedef base64_from_binary<transform_width<string::const_iterator, 6, 8> > base6
 //////////////////////////////////////////////////////////////////////
 
 void
-CcnbXmlPrinter::visit (Blob &n, boost::any param)
+CcnbPlainPrinter::visit (Blob &n, boost::any param)
 {
   // Buffer n.m_blob;
 
@@ -71,7 +67,7 @@ CcnbXmlPrinter::visit (Blob &n, boost::any param)
 }
  
 void
-CcnbXmlPrinter::visit (Udata &n, boost::any param)
+CcnbPlainPrinter::visit (Udata &n, boost::any param)
 {
   // std::string n.m_udata;
   cout << n.m_udata;
@@ -79,7 +75,7 @@ CcnbXmlPrinter::visit (Udata &n, boost::any param)
 
 // just a small helper to avoid duplication
 void
-CcnbXmlPrinter::ProcessTag (BaseTag &n, boost::any param)
+CcnbPlainPrinter::ProcessTag (BaseTag &n, boost::any param)
 {
   // std::list<Ptr<Block> > n.m_attrs;
   // uint8_t                n.m_encoding; ///< BLOB encoding, possible values NOT_SET=0, UTF8, BASE64
@@ -89,90 +85,35 @@ CcnbXmlPrinter::ProcessTag (BaseTag &n, boost::any param)
     {
       block->accept (*this, param);
     }
-
-  cout << ">";
-  if (!(n.m_nestedTags.size()==1 &&
-       (DynamicCast<Blob>(n.m_nestedTags.front()) || DynamicCast<Udata>(n.m_nestedTags.front()))))
-    {
-      cout << endl;
-    }
   
   BOOST_FOREACH (Ptr<Block> block, n.m_nestedTags)
     {
       block->accept (*this, param);
     }
 }
-
-void
-CcnbXmlPrinter::visit (Tag &n, boost::any param)
-{
-  // std::string n.m_tag;
-  cout << boost::any_cast<string>(param) << "<" << n.m_tag; 
-
-  ProcessTag (n, boost::any_cast<string>(param)+"  ");
-
-  if (!(n.m_nestedTags.size()==1 &&
-       (DynamicCast<Blob>(n.m_nestedTags.front()) || DynamicCast<Udata>(n.m_nestedTags.front()))))
-    {
-      cout << boost::any_cast<string>(param);
-    }
-
-  cout << "</" << n.m_tag << ">" << endl;
-}
  
 void
-CcnbXmlPrinter::visit (Dtag &n, boost::any param)
+CcnbPlainPrinter::visit (Dtag &n, boost::any param)
 {
   // uint32_t n.m_dtag;
-  string tagName;
-  try
+
+  switch (n.m_dtag)
     {
-      tagName = PrintHelper::dict_name_from_number (n.m_dtag, m_tagdict, m_tagdict_count);
+    case CCN_DTAG_Interest:
+      cout << ", Packet Type: Interest";
+      break;
+    case CCN_DTAG_ContentObject:
+      cout << ", Packet Type: ContentObject";
+      break;
+    case CCN_DTAG_Name:
+      cout << ", Name: ";
+      n.m_nestedTags->accept (*this, param);
+      break;
     }
-  catch (UnknownDtag)
-    {
-      cerr << "*** Warning: unrecognized DTAG [" << n.m_dtag << "]\n";
-      tagName = "UNKNOWN_DTAG";
-    }
-
-  cout << boost::any_cast<string>(param) << "<" << tagName;
-
-  ProcessTag (n, boost::any_cast<string>(param) + "  ");
-
-  if (!(n.m_nestedTags.size()==1 &&
-       (DynamicCast<Blob>(n.m_nestedTags.front()) || DynamicCast<Udata>(n.m_nestedTags.front()))))
-    {
-      cout << boost::any_cast<string>(param);
-    }
-
-  cout << "</" << tagName << ">" << endl;
 }
- 
+  
 void
-CcnbXmlPrinter::visit (Attr &n, boost::any param)
-{
-  // std::string n.m_attr;
-  // Ptr<Udata> n.m_value;
-
-  cout << " " << n.m_attr << "=\"";
-  n.accept (*this, param);
-  cout << "\"";
-}
- 
-void
-CcnbXmlPrinter::visit (Dattr &n, boost::any param)
-{
-  // uint32_t n.m_dattr;
-  // Ptr<Udata> n.m_value;
-
-  cerr << "*** Warning: unrecognized DATTR [" << n.m_dattr << "]\n";
-  cout << " UNKNOWN_ATTR=\"";
-  n.accept (*this, param);
-  cout << "\"";
-}
- 
-void
-CcnbXmlPrinter::visit (Ext &n, boost::any param)
+CcnbPlainPrinter::visit (Ext &n, boost::any param)
 {
   // uint64_t n.m_extSubtype;
 
