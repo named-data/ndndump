@@ -18,6 +18,8 @@
 #include "ns3/ccnb-parser-udata.h"
 
 #include "ns3/ccnb-parser-name-components-visitor.h"
+#include "ns3/ccnb-parser-non-negative-integer-visitor.h"
+#include "ns3/ccnb-parser-timestamp-visitor.h"
 
 using namespace std;
 using namespace ns3::CcnbParser;
@@ -55,6 +57,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
 {
   // uint32_t n.m_dtag;
   static CcnbParser::NameComponentsVisitor nameComponentsVisitor;
+  static CcnbParser::NonNegativeIntegerVisitor nonNegativeIntegerVisitor;
+  static CcnbParser::TimestampVisitor timestampVisitor;
 
   switch (n.m_dtag)
     {
@@ -90,6 +94,71 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
           nested->accept (nameComponentsVisitor, param);
         }
       cout << "|";
+      break;
+    case CcnbParser::CCN_DTAG_MinSuffixComponents:
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+      cout << ", MinSuffixComponents: " <<
+               boost::any_cast<uint32_t> (
+                                          (*n.m_nestedTags.begin())->accept(
+                                                                           nonNegativeIntegerVisitor
+                                                                           ));
+      break;
+    case CcnbParser::CCN_DTAG_MaxSuffixComponents:
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+      cout << ", MaxSuffixComponents: " <<
+        boost::any_cast<uint32_t> (
+                                          (*n.m_nestedTags.begin())->accept(
+                                                                           nonNegativeIntegerVisitor
+                                                                           ));
+      break;
+      
+    case CcnbParser::CCN_DTAG_ChildSelector:
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+
+      cout << ", ChildSelector: " <<
+        boost::any_cast<uint32_t> (
+                                   (*n.m_nestedTags.begin())->accept(
+                                                                     nonNegativeIntegerVisitor
+                                                                     ));
+      break;
+    case CcnbParser::CCN_DTAG_AnswerOriginKind:
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+      cout << ", AnswerKind: " <<
+        boost::any_cast<uint32_t> (
+                                   (*n.m_nestedTags.begin())->accept(
+                                                                     nonNegativeIntegerVisitor
+                                                                     ));
+      break;
+    case CcnbParser::CCN_DTAG_Scope: 
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+      
+      cout << ", Scope: " <<
+        boost::any_cast<uint32_t> (
+                                   (*n.m_nestedTags.begin())->accept(
+                                                                     nonNegativeIntegerVisitor
+                                                                     ));
+      break;
+    case CcnbParser::CCN_DTAG_InterestLifetime:
+      {
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+
+      Time time = boost::any_cast<Time>(n.m_nestedTags.front()->accept (timestampVisitor));
+
+      cout << ", Lifetime: " << time;
+      break;
+      }
+    case CcnbParser::CCN_DTAG_Nonce:
+      if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
+        throw CcnbDecodingException ();
+
+      cout << ", Nonce: ";
+      n.m_nestedTags.front()->accept (nameComponentsVisitor, param);
       break;
     }
 }

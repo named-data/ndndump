@@ -245,6 +245,10 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 				{
 					cout << os.str();
 					root->accept (plainPrinter, string(""));
+
+					if (flags.print_xml)
+						root->accept (*ccnbDecoder, string(""));
+					
 					cout << endl; // flushing?
 				}
 		}
@@ -261,328 +265,288 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 	kill(getpid(), SIGUSR1);
 }
 
-int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
-	struct ccn_parsed_interest interest;
-	struct ccn_parsed_interest *pi = &interest;
-	struct ccn_charbuf *c;
-	struct ccn_indexbuf *comps;
-	//const unsigned char *comp;
-	//size_t comp_size;
-	const unsigned char *blob;
-	size_t blob_size;
-	ssize_t len;
-	double lifetime;
-	int res;
-	int i;
+// 	/* Nonce */
+// 	len = pi->offset[CCN_PI_E_Nonce] - pi->offset[CCN_PI_B_Nonce];
+// 	if (len > 0) {
+// 		ccn_ref_tagged_BLOB(CCN_DTAG_Nonce, ccnb, pi->offset[CCN_PI_B_Nonce], pi->offset[CCN_PI_E_Nonce], &blob, &blob_size);
+// 		printf("<");
+// 		for (i = 0; i < blob_size; i++) {
+// 			printf("%02x", *blob);
+// 			blob++;
+// 		}
+// 		printf(">\n");
+// 	}
 
-	comps = ccn_indexbuf_create();
-	res = ccn_parse_interest(ccnb, ccnb_size, pi, comps);
-	if (res < 0)
-		return res;
+// 	if (flags.verbose) {
+// 		/* MinSuffixComponents */
+// 		len = pi->offset[CCN_PI_E_MinSuffixComponents] - pi->offset[CCN_PI_B_MinSuffixComponents];
+// 		if (len > 0) {
+// 			int min_sc = pi->min_suffix_comps;
+// 			printf("MinSC: %d, ", min_sc);
+// 		}
 
-	/* Name */
-	len = pi->offset[CCN_PI_E_Name] - pi->offset[CCN_PI_B_Name];
-	c = ccn_charbuf_create();
-	ccn_uri_append(c, ccnb, ccnb_size, 1);
+// 		/* MaxSuffixComponents */
+// 		len = pi->offset[CCN_PI_E_MaxSuffixComponents] - pi->offset[CCN_PI_B_MaxSuffixComponents];
+// 		if (len > 0) {
+// 			int max_sc = pi->max_suffix_comps;
+// 			printf("MaxSC: %d, ", max_sc);
+// 		}
 
-	MATCH (c);
+// 		/* PublisherPublicKeyDigest */
+// 		/* Exclude */
+// 		// TODO: use ccn_skeleton_parser to deal with this thing
 
-	printf("%s", tbuf);
-	if (!flags.succinct) {
-		printf("%s", pbuf);
-	}
-	printf("Packet Type: Interest, Name: %s, ", ccn_charbuf_as_string(c));
+// 		/* ChildSelector */
+// 		len = pi->offset[CCN_PI_E_ChildSelector] - pi->offset[CCN_PI_B_ChildSelector];
+// 		if (len > 0) {
+// 			int order = pi->orderpref;
+// 			printf("ChildSelector: ");
+// 			switch (order) {
+// 			case 0: printf("leftmost/least, ");
+// 					break;
+// 			case 1: printf("rightmost/greatest, ");
+// 					break;
+// 			default: printf("invalid, ");
+// 			}
+// 		}
 
+// 		/* AnswerOriginKind */
+// 		len = pi->offset[CCN_PI_E_AnswerOriginKind] - pi->offset[CCN_PI_B_AnswerOriginKind];
+// 		if (len > 0) {
+// 			int origin = pi->answerfrom;
+// 			printf("AnswerOriginKind: %d, ", origin);
+// 		}
 
-	/*
-	for (i = 0; i < comps->n - 1; i++) {
-		res = ccn_name_comp_get(ccnb, comps, i, &comp, &comp_size);
-		// TODO: do something
-	}
-	*/
+// 		/* Scope */
+// 		len = pi->offset[CCN_PI_E_Scope] - pi->offset[CCN_PI_B_Scope];
+// 		if (len > 0) {
+// 			int scope = pi->scope;
+// 			printf("Scope: %d, ", scope);
+// 		}
 
-	/* Nonce */
-	len = pi->offset[CCN_PI_E_Nonce] - pi->offset[CCN_PI_B_Nonce];
-	if (len > 0) {
-		ccn_ref_tagged_BLOB(CCN_DTAG_Nonce, ccnb, pi->offset[CCN_PI_B_Nonce], pi->offset[CCN_PI_E_Nonce], &blob, &blob_size);
-		printf("<");
-		for (i = 0; i < blob_size; i++) {
-			printf("%02x", *blob);
-			blob++;
-		}
-		printf(">\n");
-	}
-
-	if (flags.verbose) {
-		/* MinSuffixComponents */
-		len = pi->offset[CCN_PI_E_MinSuffixComponents] - pi->offset[CCN_PI_B_MinSuffixComponents];
-		if (len > 0) {
-			int min_sc = pi->min_suffix_comps;
-			printf("MinSC: %d, ", min_sc);
-		}
-
-		/* MaxSuffixComponents */
-		len = pi->offset[CCN_PI_E_MaxSuffixComponents] - pi->offset[CCN_PI_B_MaxSuffixComponents];
-		if (len > 0) {
-			int max_sc = pi->max_suffix_comps;
-			printf("MaxSC: %d, ", max_sc);
-		}
-
-		/* PublisherPublicKeyDigest */
-		/* Exclude */
-		// TODO: use ccn_skeleton_parser to deal with this thing
-
-		/* ChildSelector */
-		len = pi->offset[CCN_PI_E_ChildSelector] - pi->offset[CCN_PI_B_ChildSelector];
-		if (len > 0) {
-			int order = pi->orderpref;
-			printf("ChildSelector: ");
-			switch (order) {
-			case 0: printf("leftmost/least, ");
-					break;
-			case 1: printf("rightmost/greatest, ");
-					break;
-			default: printf("invalid, ");
-			}
-		}
-
-		/* AnswerOriginKind */
-		len = pi->offset[CCN_PI_E_AnswerOriginKind] - pi->offset[CCN_PI_B_AnswerOriginKind];
-		if (len > 0) {
-			int origin = pi->answerfrom;
-			printf("AnswerOriginKind: %d, ", origin);
-		}
-
-		/* Scope */
-		len = pi->offset[CCN_PI_E_Scope] - pi->offset[CCN_PI_B_Scope];
-		if (len > 0) {
-			int scope = pi->scope;
-			printf("Scope: %d, ", scope);
-		}
-
-		/* InterestLifeTime */
-		len = pi->offset[CCN_PI_E_InterestLifetime] - pi->offset[CCN_PI_B_InterestLifetime];
-		if (len > 0) {
-			ccn_ref_tagged_BLOB(CCN_DTAG_InterestLifetime, ccnb, pi->offset[CCN_PI_B_InterestLifetime], pi->offset[CCN_PI_E_InterestLifetime], &blob, &blob_size);
-			lifetime = 0.0;
-			for (i = 0; i < blob_size; i++)
-				lifetime = lifetime *256.0 + (double)blob[i];
-			lifetime /= 4096.0;
-			printf("InterestLifetime: %f\n", lifetime);
-		}
-	}
+// 		/* InterestLifeTime */
+// 		len = pi->offset[CCN_PI_E_InterestLifetime] - pi->offset[CCN_PI_B_InterestLifetime];
+// 		if (len > 0) {
+// 			ccn_ref_tagged_BLOB(CCN_DTAG_InterestLifetime, ccnb, pi->offset[CCN_PI_B_InterestLifetime], pi->offset[CCN_PI_E_InterestLifetime], &blob, &blob_size);
+// 			lifetime = 0.0;
+// 			for (i = 0; i < blob_size; i++)
+// 				lifetime = lifetime *256.0 + (double)blob[i];
+// 			lifetime /= 4096.0;
+// 			printf("InterestLifetime: %f\n", lifetime);
+// 		}
+// 	}
 
 
-	if (flags.ccnb) {
-		printf("Interest: \n");
-		PrintHelper::print_payload(ccnb, ccnb_size);
-		printf("\n");
-	}
+// 	if (flags.ccnb) {
+// 		printf("Interest: \n");
+// 		PrintHelper::print_payload(ccnb, ccnb_size);
+// 		printf("\n");
+// 	}
 
-	if (flags.print_xml)
-		ccnbDecoder->DecodeAndPrint ((const char*)ccnb, ccnb_size);
+// 	if (flags.print_xml)
+// 		ccnbDecoder->DecodeAndPrint ((const char*)ccnb, ccnb_size);
 
-	return 1;
-}
+// 	return 1;
+// }
 
-int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
-	struct ccn_parsed_ContentObject co;
-	struct ccn_parsed_ContentObject *pco = &co;
-	struct ccn_charbuf *c;
-	struct ccn_indexbuf *comps;
-	const unsigned char *comp;
-	size_t comp_size;
-	size_t blob_size;
-	const unsigned char *blob;
-	int len;
-	int i;
-	int res;
+// int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
+// 	struct ccn_parsed_ContentObject co;
+// 	struct ccn_parsed_ContentObject *pco = &co;
+// 	struct ccn_charbuf *c;
+// 	struct ccn_indexbuf *comps;
+// 	const unsigned char *comp;
+// 	size_t comp_size;
+// 	size_t blob_size;
+// 	const unsigned char *blob;
+// 	int len;
+// 	int i;
+// 	int res;
 
-	comps = ccn_indexbuf_create();
-	res = ccn_parse_ContentObject(ccnb, ccnb_size, pco, comps);
-	if (res <0)
-		return res;
+// 	comps = ccn_indexbuf_create();
+// 	res = ccn_parse_ContentObject(ccnb, ccnb_size, pco, comps);
+// 	if (res <0)
+// 		return res;
 
-	/* Name */
-	len = pco->offset[CCN_PCO_E_Name] - pco->offset[CCN_PCO_B_Name];
-	c = ccn_charbuf_create();
-	ccn_uri_append(c, ccnb, ccnb_size, 1);
+// 	/* Name */
+// 	len = pco->offset[CCN_PCO_E_Name] - pco->offset[CCN_PCO_B_Name];
+// 	c = ccn_charbuf_create();
+// 	ccn_uri_append(c, ccnb, ccnb_size, 1);
 
-	MATCH (c);
+// 	MATCH (c);
 
-	printf("%s", tbuf);
-	if (!flags.succinct) {
-		printf("%s", pbuf);
-	}
+// 	printf("%s", tbuf);
+// 	if (!flags.succinct) {
+// 		printf("%s", pbuf);
+// 	}
 
-	/* Content */
-	len = pco->offset[CCN_PCO_E_Content] - pco->offset[CCN_PCO_B_Content];
-	res = ccn_ref_tagged_BLOB(CCN_DTAG_Content, ccnb, pco->offset[CCN_PCO_B_Content], pco->offset[CCN_PCO_E_Content], &blob, &blob_size);
-	/* TODO: do something with content*/
+// 	/* Content */
+// 	len = pco->offset[CCN_PCO_E_Content] - pco->offset[CCN_PCO_B_Content];
+// 	res = ccn_ref_tagged_BLOB(CCN_DTAG_Content, ccnb, pco->offset[CCN_PCO_B_Content], pco->offset[CCN_PCO_E_Content], &blob, &blob_size);
+// 	/* TODO: do something with content*/
 
-	printf("Packet Type: ContentObject, Name: %s, Content Size: %d\n", ccn_charbuf_as_string(c), len);
+// 	printf("Packet Type: ContentObject, Name: %s, Content Size: %d\n", ccn_charbuf_as_string(c), len);
 
-	/* Name Components */
-	for (i = 0; i < comps->n - 1; i ++) {
-		res = ccn_name_comp_get(ccnb, comps, i, &comp, &comp_size);
-		/* TODO: do something */
-	}
-
-
-	if (flags.signature) {
-		/* Signature */
-		len = pco->offset[CCN_PCO_E_Signature] - pco->offset[CCN_PCO_B_Signature];
-		if (len > 0) {
-		printf("Signature: \n\t");
-
-			/* DigestAlgorithm */
-			len = pco->offset[CCN_PCO_E_DigestAlgorithm] - pco->offset[CCN_PCO_B_DigestAlgorithm];
-			if (len > 0) {
-				blob_size = 0;
-				res = ccn_ref_tagged_BLOB(CCN_DTAG_DigestAlgorithm, ccnb,
-										  pco->offset[CCN_PCO_B_DigestAlgorithm],
-										  pco->offset[CCN_PCO_E_DigestAlgorithm],
-										  &blob, &blob_size);
-				printf("DigestAlogrithm: \n\t");
-				PrintHelper::print_payload(blob, blob_size);
-				/*
-				for (i = 0; i < blob_size; i++) {
-					printf("%02x", *blob);
-					blob++;
-				}
-				*/
-				printf("\n\t");
-			}
-			/* Witness */
-			/* Signature bits */
-			len = pco->offset[CCN_PCO_E_SignatureBits] - pco->offset[CCN_PCO_B_SignatureBits];
-			if (len > 0) {
-				blob_size = 0;
-				res = ccn_ref_tagged_BLOB(CCN_DTAG_SignatureBits, ccnb,
-										  pco->offset[CCN_PCO_B_SignatureBits],
-										  pco->offset[CCN_PCO_E_SignatureBits],
-										  &blob, &blob_size);
-
-				printf("SignatureBits: \n\t");
-				PrintHelper::print_payload(blob, blob_size);
-				/*
-				for (i = 0; i < blob_size; i++) {
-					printf("%02x", *blob);
-					blob++;
-				}
-				*/
-				printf("\n");
-			}
-		}
-	}
-
-	if (flags.verbose)  {
-
-		/* SignedInfo */
-		printf("Signed Info:\n\t");
-		/* PublisherPublicKeyDigest */
-		len = pco->offset[CCN_PCO_E_PublisherPublicKeyDigest] - pco->offset[CCN_PCO_B_PublisherPublicKeyDigest];
-		if (len > 0) {
-			blob_size = 0;
-			res = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, ccnb,
-									  pco->offset[CCN_PCO_B_PublisherPublicKeyDigest],
-									  pco->offset[CCN_PCO_E_PublisherPublicKeyDigest],
-									  &blob, &blob_size);
-			printf("PublisherPublicKeyDigest: \n\t");
-			PrintHelper::print_payload(blob, blob_size);
-			/*
-			for (i = 0; i < blob_size; i++) {
-				printf("%02x", *blob);
-				blob++;
-			}
-			*/
-			printf("\n\t");
-
-		}
-
-		/* Timestamp */
-		len = pco->offset[CCN_PCO_E_Timestamp] - pco->offset[CCN_PCO_B_Timestamp];
-		if (len > 0) {
-			res = ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, ccnb,
-									  pco->offset[CCN_PCO_B_Timestamp],
-									  pco->offset[CCN_PCO_E_Timestamp],
-									  &blob, &blob_size);
-			double dt = 0.0;
-			for (i = 0; i < blob_size; i++)
-				dt = dt * 256.0 + (double)blob[i];
-			dt /= 4096.0;
-			printf("TimeStamp: %f, ", dt);
-		}
-
-		/* Type */
-		len = pco->offset[CCN_PCO_E_Type] - pco->offset[CCN_PCO_B_Type];
-		if (len > 0) {
-			res = ccn_ref_tagged_BLOB(CCN_DTAG_Type, ccnb, pco->offset[CCN_PCO_B_Type], pco->offset[CCN_PCO_E_Type], &blob, &blob_size);
-			int type = pco->type;
-			printf("Content Type: ");
-			switch (type) {
-			case CCN_CONTENT_DATA:  printf("Data, ");
-									break;
-			case CCN_CONTENT_ENCR:	printf("Encrypted, ");
-									break;
-			case CCN_CONTENT_GONE:  printf("Gone, ");
-									break;
-			case CCN_CONTENT_KEY:	printf("Key, ");
-									break;
-			case CCN_CONTENT_LINK:	printf("Link, ");
-									break;
-			case CCN_CONTENT_NACK:	printf("Nack, ");
-									break;
-			default:
-				break;
-			}
-
-		}
-		/* FreshSeconds */
-		len = pco->offset[CCN_PCO_E_FreshnessSeconds] - pco->offset[CCN_PCO_B_FreshnessSeconds];
-		if (len > 0) {
-			res = ccn_ref_tagged_BLOB(CCN_DTAG_FreshnessSeconds, ccnb,
-									  pco->offset[CCN_PCO_B_FreshnessSeconds],
-									  pco->offset[CCN_PCO_E_FreshnessSeconds],
-									  &blob, &blob_size);
-			i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_FreshnessSeconds, ccnb,
-													pco->offset[CCN_PCO_B_FreshnessSeconds],
-													pco->offset[CCN_PCO_E_FreshnessSeconds]);
-
-			printf("FressSeconds: %d, ", i);
-		}
-
-		/* FinalBlockID */
-		len = pco->offset[CCN_PCO_E_FinalBlockID] - pco->offset[CCN_PCO_B_FinalBlockID];
-		if (len > 0) {
-			res = ccn_ref_tagged_BLOB(CCN_DTAG_FinalBlockID, ccnb,
-									  pco->offset[CCN_PCO_B_FinalBlockID],
-									  pco->offset[CCN_PCO_E_FinalBlockID],
-									  &blob, &blob_size);
-
-			/* TODO: do something */
-			if (res == 0)
-				printf("FinalBlockID: Yes");
-			else
-				printf("FinalBlockID: No");
-		}
-		/* KeyLocator */
-		printf("\n");
-	}
+// 	/* Name Components */
+// 	for (i = 0; i < comps->n - 1; i ++) {
+// 		res = ccn_name_comp_get(ccnb, comps, i, &comp, &comp_size);
+// 		/* TODO: do something */
+// 	}
 
 
-	if (flags.ccnb) {
-		printf("ContentObject:\n");
-		PrintHelper::print_payload(ccnb, ccnb_size);
-		printf("\n");
-	}
+// 	if (flags.signature) {
+// 		/* Signature */
+// 		len = pco->offset[CCN_PCO_E_Signature] - pco->offset[CCN_PCO_B_Signature];
+// 		if (len > 0) {
+// 		printf("Signature: \n\t");
 
-	if (flags.print_xml)
-		ccnbDecoder->DecodeAndPrint ((const char*)ccnb, ccnb_size);
+// 			/* DigestAlgorithm */
+// 			len = pco->offset[CCN_PCO_E_DigestAlgorithm] - pco->offset[CCN_PCO_B_DigestAlgorithm];
+// 			if (len > 0) {
+// 				blob_size = 0;
+// 				res = ccn_ref_tagged_BLOB(CCN_DTAG_DigestAlgorithm, ccnb,
+// 										  pco->offset[CCN_PCO_B_DigestAlgorithm],
+// 										  pco->offset[CCN_PCO_E_DigestAlgorithm],
+// 										  &blob, &blob_size);
+// 				printf("DigestAlogrithm: \n\t");
+// 				PrintHelper::print_payload(blob, blob_size);
+// 				/*
+// 				for (i = 0; i < blob_size; i++) {
+// 					printf("%02x", *blob);
+// 					blob++;
+// 				}
+// 				*/
+// 				printf("\n\t");
+// 			}
+// 			/* Witness */
+// 			/* Signature bits */
+// 			len = pco->offset[CCN_PCO_E_SignatureBits] - pco->offset[CCN_PCO_B_SignatureBits];
+// 			if (len > 0) {
+// 				blob_size = 0;
+// 				res = ccn_ref_tagged_BLOB(CCN_DTAG_SignatureBits, ccnb,
+// 										  pco->offset[CCN_PCO_B_SignatureBits],
+// 										  pco->offset[CCN_PCO_E_SignatureBits],
+// 										  &blob, &blob_size);
 
-	return (ccnb_size);
+// 				printf("SignatureBits: \n\t");
+// 				PrintHelper::print_payload(blob, blob_size);
+// 				/*
+// 				for (i = 0; i < blob_size; i++) {
+// 					printf("%02x", *blob);
+// 					blob++;
+// 				}
+// 				*/
+// 				printf("\n");
+// 			}
+// 		}
+// 	}
 
-}
+// 	if (flags.verbose)  {
+
+// 		/* SignedInfo */
+// 		printf("Signed Info:\n\t");
+// 		/* PublisherPublicKeyDigest */
+// 		len = pco->offset[CCN_PCO_E_PublisherPublicKeyDigest] - pco->offset[CCN_PCO_B_PublisherPublicKeyDigest];
+// 		if (len > 0) {
+// 			blob_size = 0;
+// 			res = ccn_ref_tagged_BLOB(CCN_DTAG_PublisherPublicKeyDigest, ccnb,
+// 									  pco->offset[CCN_PCO_B_PublisherPublicKeyDigest],
+// 									  pco->offset[CCN_PCO_E_PublisherPublicKeyDigest],
+// 									  &blob, &blob_size);
+// 			printf("PublisherPublicKeyDigest: \n\t");
+// 			PrintHelper::print_payload(blob, blob_size);
+// 			/*
+// 			for (i = 0; i < blob_size; i++) {
+// 				printf("%02x", *blob);
+// 				blob++;
+// 			}
+// 			*/
+// 			printf("\n\t");
+
+// 		}
+
+// 		/* Timestamp */
+// 		len = pco->offset[CCN_PCO_E_Timestamp] - pco->offset[CCN_PCO_B_Timestamp];
+// 		if (len > 0) {
+// 			res = ccn_ref_tagged_BLOB(CCN_DTAG_Timestamp, ccnb,
+// 									  pco->offset[CCN_PCO_B_Timestamp],
+// 									  pco->offset[CCN_PCO_E_Timestamp],
+// 									  &blob, &blob_size);
+// 			double dt = 0.0;
+// 			for (i = 0; i < blob_size; i++)
+// 				dt = dt * 256.0 + (double)blob[i];
+// 			dt /= 4096.0;
+// 			printf("TimeStamp: %f, ", dt);
+// 		}
+
+// 		/* Type */
+// 		len = pco->offset[CCN_PCO_E_Type] - pco->offset[CCN_PCO_B_Type];
+// 		if (len > 0) {
+// 			res = ccn_ref_tagged_BLOB(CCN_DTAG_Type, ccnb, pco->offset[CCN_PCO_B_Type], pco->offset[CCN_PCO_E_Type], &blob, &blob_size);
+// 			int type = pco->type;
+// 			printf("Content Type: ");
+// 			switch (type) {
+// 			case CCN_CONTENT_DATA:  printf("Data, ");
+// 									break;
+// 			case CCN_CONTENT_ENCR:	printf("Encrypted, ");
+// 									break;
+// 			case CCN_CONTENT_GONE:  printf("Gone, ");
+// 									break;
+// 			case CCN_CONTENT_KEY:	printf("Key, ");
+// 									break;
+// 			case CCN_CONTENT_LINK:	printf("Link, ");
+// 									break;
+// 			case CCN_CONTENT_NACK:	printf("Nack, ");
+// 									break;
+// 			default:
+// 				break;
+// 			}
+
+// 		}
+// 		/* FreshSeconds */
+// 		len = pco->offset[CCN_PCO_E_FreshnessSeconds] - pco->offset[CCN_PCO_B_FreshnessSeconds];
+// 		if (len > 0) {
+// 			res = ccn_ref_tagged_BLOB(CCN_DTAG_FreshnessSeconds, ccnb,
+// 									  pco->offset[CCN_PCO_B_FreshnessSeconds],
+// 									  pco->offset[CCN_PCO_E_FreshnessSeconds],
+// 									  &blob, &blob_size);
+// 			i = ccn_fetch_tagged_nonNegativeInteger(CCN_DTAG_FreshnessSeconds, ccnb,
+// 													pco->offset[CCN_PCO_B_FreshnessSeconds],
+// 													pco->offset[CCN_PCO_E_FreshnessSeconds]);
+
+// 			printf("FressSeconds: %d, ", i);
+// 		}
+
+// 		/* FinalBlockID */
+// 		len = pco->offset[CCN_PCO_E_FinalBlockID] - pco->offset[CCN_PCO_B_FinalBlockID];
+// 		if (len > 0) {
+// 			res = ccn_ref_tagged_BLOB(CCN_DTAG_FinalBlockID, ccnb,
+// 									  pco->offset[CCN_PCO_B_FinalBlockID],
+// 									  pco->offset[CCN_PCO_E_FinalBlockID],
+// 									  &blob, &blob_size);
+
+// 			/* TODO: do something */
+// 			if (res == 0)
+// 				printf("FinalBlockID: Yes");
+// 			else
+// 				printf("FinalBlockID: No");
+// 		}
+// 		/* KeyLocator */
+// 		printf("\n");
+// 	}
+
+
+// 	if (flags.ccnb) {
+// 		printf("ContentObject:\n");
+// 		PrintHelper::print_payload(ccnb, ccnb_size);
+// 		printf("\n");
+// 	}
+
+// 	if (flags.print_xml)
+// 		ccnbDecoder->DecodeAndPrint ((const char*)ccnb, ccnb_size);
+
+// 	return (ccnb_size);
+
+// }
 
 int main(int argc, char *argv[])
 {

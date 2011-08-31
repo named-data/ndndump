@@ -80,4 +80,12 @@ class Time
 	long long m_ns;
 };
 
+#include <iostream>
+#include <iomanip>
+
+inline std::ostream& operator<< (std::ostream& os, const Time &time)
+{
+	return os << time.m_sec << "." << std::setfill('0') << std::setw(6) << (time.m_ns/1000);
+}
+
 #endif // _NS3_COMPAT_H_
