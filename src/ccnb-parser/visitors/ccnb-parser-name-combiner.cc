@@ -19,13 +19,14 @@
  */
 
 #include "print-helper.h"
-#include "ns3/ccnb-parser-name-components-visitor.h"
+#include "ns3/ccnb-parser-name-combiner.h"
 
 #include "ns3/ccnb-parser-blob.h"
 #include "ns3/ccnb-parser-udata.h"
 #include "ns3/ccnb-parser-dtag.h"
 
 #include <iostream>
+#include <sstream>
 #include <boost/foreach.hpp>
 #include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/base64_from_binary.hpp>
@@ -44,15 +45,16 @@ typedef base64_from_binary<transform_width<string::const_iterator, 6, 8> > base6
 //////////////////////////////////////////////////////////////////////
 
 void
-NameComponentsVisitor::visit (Blob &n, boost::any param)
+NameCombiner::visit (Blob &n, boost::any param)
 {
   // Buffer n.m_blob;
-
+  ostream &os = *(boost::any_cast<ostream*> (param));
+  
   if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
-    PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+    PrintHelper::print_percent_escaped (os, (unsigned char*)n.m_blob.get (), n.m_blobSize);
   else
     {
-      ostreambuf_iterator<char> out_it (cout); // stdout iterator
+      ostreambuf_iterator<char> out_it (os); // stdout iterator
       // need to encode to base64
       std::copy (base64_t (n.m_blob.get ()),
                  base64_t (n.m_blob.get ()+n.m_blobSize),
@@ -61,24 +63,38 @@ NameComponentsVisitor::visit (Blob &n, boost::any param)
 }
  
 void
-NameComponentsVisitor::visit (Udata &n, boost::any param)
+NameCombiner::visit (Udata &n, boost::any param)
 {
   // std::string n.m_udata;
-  cout << n.m_udata;
+  *(boost::any_cast<ostream*> (param)) << n.m_udata;
 }
 
 void
-NameComponentsVisitor::visit (Dtag &n, boost::any param)
+NameCombiner::visit (Dtag &n, boost::any param)
 {
   switch (n.m_dtag)
     {
-    case CCN_DTAG_Any:
-      cout << "Any";
+    case CCN_DTAG_Name: // process only name dtag
+      {
+        ostream &os = *(boost::any_cast<ostream*> (param));
+
+        if (n.m_nestedTags.size()==0)
+          os << "/";
+        
+        BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
+          {
+            os << "/";
+            nested->accept (*this, param);
+          }
+        break;
+      }
+    case CCN_DTAG_Interest:
+    case CCN_DTAG_ContentObject:
+    case CCN_DTAG_Component:
+      // cout << "preved \n";
+      VoidDepthFirstVisitor::visit (n, param);
       break;
-    case CCN_DTAG_Bloom:
-      cout << "Bloom";
     default:
-      VoidDepthFirstVisitor::visit (n,param);
       break;
     }
 }

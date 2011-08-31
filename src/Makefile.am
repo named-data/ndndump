@@ -19,6 +19,7 @@ ccnb-parser/visitors/ccnb-parser-string-visitor.cc \
 ccnb-parser/visitors/ccnb-parser-void-depth-first-visitor.cc \
 ccnb-parser/visitors/ccnb-parser-void-no-argu-depth-first-visitor.cc \
 ccnb-parser/visitors/ccnb-parser-name-components-visitor.cc \
+ccnb-parser/visitors/ccnb-parser-name-combiner.cc \
 ccnb-parser/visitors/ccnb-parser-timestamp-visitor.cc 
 
 #ccnb-parser/visitors/ccnb-parser-nonce-visitor.cc 

@@ -15,7 +15,7 @@ AC_PROG_CXX
 AC_PROG_CXX_C_O
 AX_BOOST_BASE([1.45],
   [AX_BOOST_REGEX],
-  [AC_MSG_WARN([Boost libraries not found. Will compile without regular expression support])])
+  [AC_MSG_ERROR([Required boost libraries not found])])
 
 # Checks for libraries.
 AX_CCNX([0.4.0],,[AC_MSG_ERROR([Required CCNx library not found])])

@@ -63,19 +63,26 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
   switch (n.m_dtag)
     {
     case CcnbParser::CCN_DTAG_Interest:
-      cout << ", Packet Type: Interest";
+      if (!m_minimal)
+        cout << "Packet Type: ";
+      cout << "Interest";
       BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
         nested->accept (*this, param);
       break;
       
     case CcnbParser::CCN_DTAG_ContentObject:
-      cout << ", Packet Type: ContentObject";
+      if (!m_minimal)
+        cout << "Packet Type: ";
+      cout << "ContentObject";
       BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
         nested->accept (*this, param);
       break;
       
     case CcnbParser::CCN_DTAG_Name:
-      cout << ", Name: ";
+      if (!m_minimal)
+        cout << ", Name:";
+      cout << " ";
+      
       if (n.m_nestedTags.size()==0)
         cout << "/";
       BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
@@ -86,6 +93,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
       break;
 
     case CcnbParser::CCN_DTAG_Exclude:
+      if (!m_verbose) break;
+      
       cout << ", Exclude: ";
       
       BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
@@ -96,6 +105,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
       cout << "|";
       break;
     case CcnbParser::CCN_DTAG_MinSuffixComponents:
+      if (!m_verbose) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
       cout << ", MinSuffixComponents: " <<
@@ -105,6 +116,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
                                                                            ));
       break;
     case CcnbParser::CCN_DTAG_MaxSuffixComponents:
+      if (!m_verbose) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
       cout << ", MaxSuffixComponents: " <<
@@ -113,8 +126,34 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
                                                                            nonNegativeIntegerVisitor
                                                                            ));
       break;
-      
+
+    case CcnbParser::CCN_DTAG_PublisherPublicKeyDigest:
+      if (!m_verbose) break;
+      cout << ", PublisherPublicKeyDigest: ";
+      BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
+          nested->accept (nameComponentsVisitor, param);
+      break;
+    case CcnbParser::CCN_DTAG_PublisherCertificateDigest:
+      if (!m_verbose) break;
+      cout << ", PublisherCertificateDigest: ";
+      BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
+          nested->accept (nameComponentsVisitor, param);
+      break;
+    case CcnbParser::CCN_DTAG_PublisherIssuerKeyDigest:
+      if (!m_verbose) break;
+      cout << ", PublisherIssuerKeyDigest: ";
+      BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
+          nested->accept (nameComponentsVisitor, param);
+      break;
+    case CcnbParser::CCN_DTAG_PublisherIssuerCertificateDigest:
+      if (!m_verbose) break;
+      cout << ", PublisherIssuerCertificateDigest: ";
+      BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
+          nested->accept (nameComponentsVisitor, param);
+      break;           
     case CcnbParser::CCN_DTAG_ChildSelector:
+      if (!m_verbose) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
 
@@ -125,6 +164,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
                                                                      ));
       break;
     case CcnbParser::CCN_DTAG_AnswerOriginKind:
+      if (!m_verbose) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
       cout << ", AnswerKind: " <<
@@ -134,6 +175,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
                                                                      ));
       break;
     case CcnbParser::CCN_DTAG_Scope: 
+      if (!m_verbose) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
       
@@ -145,6 +188,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
       break;
     case CcnbParser::CCN_DTAG_InterestLifetime:
       {
+      if (m_minimal) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
 
@@ -154,6 +199,8 @@ CcnbPlainPrinter::visit (Dtag &n, boost::any param)
       break;
       }
     case CcnbParser::CCN_DTAG_Nonce:
+      if (m_minimal) break;
+
       if (n.m_nestedTags.size()!=1) // should be exactly one UDATA inside this tag
         throw CcnbDecodingException ();
 

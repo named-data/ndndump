@@ -4,6 +4,7 @@
 #define _PRINT_HELPER_H_
 
 #include <stddef.h>
+#include <iostream>
 
 struct ccn_dict_entry;
 
@@ -18,13 +19,13 @@ public:
   
   /* see ccn_uri_append_percentescaped */
   static void
-  print_percent_escaped (const unsigned char *data, size_t size);
+  print_percent_escaped (std::ostream &os, const unsigned char *data, size_t size);
 
   static void
-  print_hex_ascii_line (const unsigned char *payload, int len, int offset);
+  print_hex_ascii_line (std::ostream &os, const unsigned char *payload, int len, int offset);
 
   static void
-  print_payload (const unsigned char *payload, int len);
+  print_payload (std::ostream &os, const unsigned char *payload, int len);
 
   static const char Base64[];
 };

@@ -8,24 +8,19 @@
 
 using namespace ns3;
 
-extern "C"
-{
-#include <ccn/coding.h>
-} // extern "C"
-
-/* formatting_flags */
-#define FORCE_BINARY   (1 << 0)
-#define PREFER_HEX     (1 << 1)
-#define VERBOSE_DECODE (1 << 2)
-
-#define CCN_NO_SCHEMA INT_MIN
-#define CCN_UNKNOWN_SCHEMA (INT_MIN+1)
-
 class CcnbPlainPrinter : public CcnbParser::VoidVisitor
 {
 public:
   CcnbPlainPrinter ();
   ~CcnbPlainPrinter ();
+
+  void
+  SetOptions (bool verbose, bool signature, bool minimal)
+  {
+    m_verbose = verbose;
+    m_signature = signature;
+    m_minimal = minimal;
+  }
 
 public:
   virtual void visit (CcnbParser::Blob& n, boost::any) {}
@@ -38,6 +33,11 @@ public:
 
 private:
   void ProcessTag (CcnbParser::BaseTag &n, boost::any param);
+
+private:
+  bool m_verbose;
+  bool m_signature;
+  bool m_minimal;
 };
 
 class PlainDecoderException {};

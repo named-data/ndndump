@@ -2,8 +2,10 @@
 
 #include "print-helper.h"
 
-#include <stdio.h>
 #include <ctype.h>
+#include <iostream>
+#include <iomanip>
+using namespace std;
 
 extern "C"
 {
@@ -44,7 +46,7 @@ PrintHelper::is_text_encodable(const unsigned char *p, size_t start, size_t leng
 
 /* see ccn_uri_append_percentescaped */
 void
-PrintHelper::print_percent_escaped(const unsigned char *data, size_t size)
+PrintHelper::print_percent_escaped(ostream& os, const unsigned char *data, size_t size)
 {
   size_t i;
   unsigned char ch;
@@ -52,7 +54,7 @@ PrintHelper::print_percent_escaped(const unsigned char *data, size_t size)
     continue;
   /* For a component that consists solely of zero or more dots, add 3 more */
   if (i == size)
-    printf("...");
+    os << "...";
   for (i = 0; i < size; i++)
     {
       ch = data[i];
@@ -64,9 +66,9 @@ PrintHelper::print_percent_escaped(const unsigned char *data, size_t size)
           ('A' <= ch && ch <= 'Z') ||
           ('0' <= ch && ch <= '9') ||
           ch == '-' || ch == '.' || ch == '_' || ch == '~')
-        printf("%c", ch);
+        os << (char) ch;
       else
-        printf("%%%02X", (unsigned)ch);
+        os << "%" << hex << setfill('0') << setw(2) << (unsigned)ch;
     }
 }
 
@@ -76,7 +78,7 @@ PrintHelper::print_percent_escaped(const unsigned char *data, size_t size)
 * 00000   47 45 54 20 2f 20 48 54  54 50 2f 31 2e 31 0d 0a   GET / HTTP/1.1..
 */
 void
-PrintHelper::print_hex_ascii_line (const unsigned char *payload, int len, int offset)
+PrintHelper::print_hex_ascii_line (ostream &os, const unsigned char *payload, int len, int offset)
 {
 
   int i;
@@ -84,21 +86,21 @@ PrintHelper::print_hex_ascii_line (const unsigned char *payload, int len, int of
   const unsigned char *ch;
 
   /* offset */
-  printf("%05d   ", offset);
+  os << setw(5) << offset << "   ";
 
   /* hex */
   ch = payload;
   for(i = 0; i < len; i++)
     {
-      printf("%02x ", *ch);
+      os << " " << setfill('0') << setw(2) << hex << (unsigned)*ch;
       ch++;
       /* print extra space after 8th byte for visual aid */
       if (i == 7)
-        printf(" ");
+        os << " ";
     }
   /* print space to handle line less than 8 bytes */
   if (len < 8)
-    printf(" ");
+    os << " ";
 
   /* fill hex gap with spaces if not full line */
   if (len < 16)
@@ -106,31 +108,30 @@ PrintHelper::print_hex_ascii_line (const unsigned char *payload, int len, int of
       gap = 16 - len;
       for (i = 0; i < gap; i++)
         {
-          printf("   ");
+          os << "   ";
 		}
 	}
-  printf("   ");
+  os << "   ";
 
   /* ascii (if printable) */
   ch = payload;
   for(i = 0; i < len; i++)
     {
       if (isprint(*ch))
-        printf("%c", *ch);
+        os << *ch;
       else
-        printf(".");
+        os << ".";
       ch++;
 	}
-  printf("\n");
+  os << "\n";
 }
 
 /*
  * print packet payload data (avoid printing binary data)
  */
 void
-PrintHelper::print_payload (const unsigned char *payload, int len)
+PrintHelper::print_payload (ostream &os, const unsigned char *payload, int len)
 {
-
   int len_rem = len;
   int line_width = 16;			/* number of bytes per line */
   int line_len;
@@ -143,7 +144,7 @@ PrintHelper::print_payload (const unsigned char *payload, int len)
   /* data fits on one line */
   if (len <= line_width)
     {
-      print_hex_ascii_line(ch, len, offset);
+      print_hex_ascii_line(os, ch, len, offset);
       return;
 	}
 
@@ -153,7 +154,7 @@ PrintHelper::print_payload (const unsigned char *payload, int len)
       /* compute current line length */
       line_len = line_width % len_rem;
       /* print line */
-      print_hex_ascii_line(ch, line_len, offset);
+      print_hex_ascii_line(os, ch, line_len, offset);
       /* compute total remaining */
       len_rem = len_rem - line_len;
       /* shift pointer to remaining bytes to print */
@@ -164,7 +165,7 @@ PrintHelper::print_payload (const unsigned char *payload, int len)
       if (len_rem <= line_width)
         {
           /* print last line and get out */
-          print_hex_ascii_line(ch, len_rem, offset);
+          print_hex_ascii_line(os, ch, len_rem, offset);
           break;
 		}
 	}
