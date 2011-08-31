@@ -33,17 +33,31 @@ extern "C"
 #include <signal.h>
 #include <sys/types.h>
 
+#include <boost/iostreams/stream.hpp>
+#include <boost/exception/all.hpp>
+
 #ifdef HAVE_BOOST_REGEX
 #include <boost/regex.hpp>
 using namespace boost;
 #endif
 
+#include <iostream>
+#include <sstream>
+#include <iomanip>
+using namespace std;
+
 #include "print-helper.h"
 #include "ccnb-print-xml.h"
+#include "ccnb-print-plain.h"
+#include "ns3/ccnb-parser-block.h"
+#include "ns3/ccnb-parser-dtag.h"
 
 #define MAX_SNAPLEN 65535
-#define CCN_MIN_PACKET_SIZE 5
-#define PBUF_SIZE 200
+#define INTEREST_BYTE0 0x01
+#define INTEREST_BYTE1 0xD2
+
+#define CONTENT_OBJECT_BYTE0 0x04
+#define CONTENT_OBJECT_BYTE1 0x82
 
 struct flags_t {
 	int ccnb;
@@ -64,13 +78,14 @@ static int prefix_num = 0;
 #else
 static regex prefix_selector;
 #endif
-static CcnbXmlPrinter *ccnbDecoder = NULL; //< will be initialized before loop starts
+static CcnbXmlPrinter *ccnbDecoder = NULL; ///< will be initialized before loop starts
+static CcnbPlainPrinter plainPrinter;
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
-int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
-int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
-int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
-void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf);
+// int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf);
+// int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
+// int dissect_ccn_content(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf);
+void print_intercept_time(ostream &, const struct pcap_pkthdr *header);
 void usage();
 
 #ifndef HAVE_BOOST_REGEX
@@ -103,13 +118,11 @@ int match_name (struct ccn_charbuf *c);
 
 
 /* WARNING: THIS IS A HACK
- * I don't know why ndndump does not work with pipe
- * anymore. It seems that the printing to stdout
- * was delayed until pcap_loop returns (which never
- * returns). I changed the packet count to 10 to test
- * my theory, and it confirmed my hypothesis.
- * To fix this, I think it is fair to add a signal
- * handler just to fflush(stdout) every time a
+ * I don't know why ndndump does not work with pipe anymore. It seems
+ * that the printing to stdout was delayed until pcap_loop returns
+ * (which never returns). I changed the packet count to 10 to test my
+ * theory, and it confirmed my hypothesis.  To fix this, I think it is
+ * fair to add a signal handler just to fflush(stdout) every time a
  * packet is processed.
  */
 void sig_handler(int signum) {
@@ -117,126 +130,136 @@ void sig_handler(int signum) {
 }
 
 
-void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet) {
-	/* declare pointers to packet headers */
-	const struct ether_header *ether_hdr;
-	const struct ip *ip_hdr;
-	const struct udphdr *udp_hdr;
-	const struct tcphdr *tcp_hdr;
-	const char *payload;
+void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
+{
+	ostringstream os;
+  	print_intercept_time (os, header);
 
-	int size_ip;
-	int size_udp;
-	int size_tcp;
-	int size_payload;
+	const ether_header *ether_hdr = reinterpret_cast<const ether_header *> (packet);
 
-	char pbuf[PBUF_SIZE];
-	char tbuf[PBUF_SIZE];
+	int payload_size = header->len - ETHER_HDRLEN;
+	const u_char *payload = packet + ETHER_HDRLEN;
+	if (payload_size<0)
+		{
+			cerr << "Invalid pcap Ethernet frame" << endl;
+			return;
+		}
 
-	print_intercept_time(header, tbuf);
-	ether_hdr = (struct ether_header *) (packet);
-	ip_hdr = (struct ip *) (packet + ETHER_HDRLEN);
-	size_ip = IP_HL(ip_hdr) * 4;
-	if (size_ip < 20) {
-		fprintf(stderr, "invalid IP header len %u bytes\n", size_ip);
-		return;
-	}
-
-	int printed = 0;
-
-	switch(ip_hdr->ip_p) {
-		case IPPROTO_UDP:
-			if (!flags.udp)
-				return;
-			udp_hdr = (struct udphdr *)(packet + ETHER_HDRLEN + size_ip);
-			size_udp = UDP_HEADER_LEN;
-			size_payload = ntohs(ip_hdr->ip_len) - (size_ip + size_udp);
-			payload = (const char *)(packet + ETHER_HDRLEN + size_ip + size_udp);
-			printed = sprintf(pbuf, "From: %s, ", inet_ntoa(ip_hdr->ip_src));
-			sprintf(pbuf + printed, "To:%s, Tunnel Type: UDP, ",  inet_ntoa(ip_hdr->ip_dst));
-			dissect_ccn(payload, size_payload, pbuf, tbuf);
-			break;
-		case IPPROTO_TCP:
-			if (!flags.tcp)
-				return;
-			tcp_hdr = (struct tcphdr *)(packet + ETHER_HDRLEN + size_ip);
-			size_tcp = TH_OFF(tcp_hdr) * 4;
-			if (size_tcp < 20) {
-				fprintf(stderr, "Invalid TCP Header len: %u bytes\n", size_tcp);
+	switch (ntohs(ether_hdr->ether_type))
+		{
+		case /*ETHERTYPE_IP*/0x0800:
+		{
+			const ip *ip_hdr = reinterpret_cast<const ip *>(payload);
+			size_t size_ip = IP_HL(ip_hdr) * 4;
+			if (size_ip < 20) {
+				cerr << "invalid IP header len "<< size_ip <<" bytes" << endl;
 				return;
 			}
-			payload = (const char *)(packet + ETHER_HDRLEN + size_ip + size_tcp);
-			size_payload = ntohs(ip_hdr->ip_len) - (size_ip + size_tcp);
-			printed = sprintf(pbuf, "From: %s, ", inet_ntoa(ip_hdr->ip_src));
-			sprintf(pbuf + printed, "To:%s, Tunnel Type: TCP, ",  inet_ntoa(ip_hdr->ip_dst));
-			dissect_ccn(payload, size_payload, pbuf, tbuf);
+			os << "From: " << inet_ntoa(ip_hdr->ip_src) << ", "
+			   << "To: "   << inet_ntoa(ip_hdr->ip_dst);
+
+			payload_size -= size_ip;
+			payload += size_ip;
+			if (payload_size<0)
+				{
+					cerr << "Invalid pcap IP packet" << endl;
+					return;
+				}
+
+			switch(ip_hdr->ip_p)
+				{
+				case IPPROTO_UDP:
+				{
+					if (!flags.udp)
+						return;
+					const udphdr *udp_hdr = reinterpret_cast<const udphdr *>(payload);
+					size_t size_udp = UDP_HEADER_LEN;
+					payload_size -= size_udp;
+					payload += size_udp;
+					if (payload_size<0)
+						{
+							cerr << "Invalid pcap UDP/IP packet" << endl;
+							return;
+						}
+					// size_payload = ntohs(ip_hdr->ip_len) - (size_ip + size_udp);
+					// payload = (const char *)(packet + ETHER_HDRLEN + size_ip + size_udp);
+
+					os << ", Tunnel Type: UDP";
+					break;
+				}
+				case IPPROTO_TCP:
+				{
+					if (!flags.tcp)
+						return;
+					const tcphdr *tcp_hdr = reinterpret_cast<const tcphdr *>(payload);
+					size_t size_tcp = TH_OFF(tcp_hdr) * 4;
+					if (size_tcp < 20) {
+						cout << "Invalid TCP Header len: "<< size_tcp <<" bytes\n";
+						return;
+					}
+					payload_size -= size_tcp;
+					payload += size_tcp;
+					if (payload_size<0)
+						{
+							cerr << "Invalid pcap TCP/IP packet" << endl;
+							return;
+						}
+					os << ", Tunnel Type: TCP";
+					break;
+				}
+				default:
+					return;
+				}
+
+			break;
+		}
+		case /*ETHERTYPE_NDN*/0x7777:
+			os << ", Tunnel Type: EthernetFrame";
 			break;
 		default:
 			return;
-	}
+			break; // do nothing if it is not an IP packet
+		}
+
+    if (payload_size<5)
+	    return;
+
+	if (!((payload[0] == INTEREST_BYTE0 && payload[1] == INTEREST_BYTE1) ||
+		  (payload[0] == CONTENT_OBJECT_BYTE0 && payload[1] == CONTENT_OBJECT_BYTE1)))
+    {
+		return; //definitely not CCNx packet
+    }
+
+    boost::iostreams::stream<boost::iostreams::array_source> in (
+		(const char*)payload,
+		(size_t)payload_size);
+
+	try
+		{
+			Ptr<CcnbParser::Dtag> root = DynamicCast<CcnbParser::Dtag>(
+				CcnbParser::Block::ParseBlock (
+					reinterpret_cast<Buffer::Iterator&> (in)));
+
+			if (root && (root->m_dtag==CCN_DTAG_Interest ||
+						 root->m_dtag==CCN_DTAG_ContentObject))
+				{
+					cout << os.str();
+					root->accept (plainPrinter, string(""));
+					cout << endl; // flushing?
+				}
+		}
+	catch (::boost::exception &e )
+		{
+			cerr << diagnostic_information(e) << endl;
+		}
+	catch (...)
+		{
+			cerr << "exception" << endl;
+			// packet parsing error
+		}
+
 	kill(getpid(), SIGUSR1);
-
 }
-
-int dissect_ccn(const char *payload, int size_payload, char *pbuf, char *tbuf) {
-	struct ccn_skeleton_decoder skel_decoder;
-	struct ccn_skeleton_decoder *sd;
-	struct ccn_charbuf *c;
-	int packet_type = 0;
-	int packet_type_len = 0;
-	unsigned char *ccnb;
-
-	if (size_payload < CCN_MIN_PACKET_SIZE)
-		return 0;
-
-	sd = &skel_decoder;
-	memset(sd, 0, sizeof(*sd));
-	/* set CCN_DSTATE_PAUSE so that the decoder returns
-	 * just after recognizing each token. use CCN_GET_TT
-	 * _FROM_DSTATE() to extract the token type
-	 */
-	sd->state |= CCN_DSTATE_PAUSE;
-	ccnb = (unsigned char *)malloc(size_payload);
-	memcpy(ccnb, payload, size_payload);
-	ccn_skeleton_decode(sd, ccnb, size_payload);
-	if (sd->state < 0)
-		return 0;
-	if (CCN_DTAG == CCN_GET_TT_FROM_DSTATE(sd->state)) {
-		packet_type = sd->numval;
-		packet_type_len = sd->index;
-	} else {
-		return 0;
-	}
-	memset(sd, 0, sizeof(*sd));
-	ccn_skeleton_decode(sd, ccnb, size_payload);
-	/* test the end of decoding */
-	if (!CCN_FINAL_DSTATE(sd->state)) {
-		return -1;
-	}
-
-	/* CCN URI in c */
-	c = ccn_charbuf_create();
-	ccn_uri_append(c, ccnb, size_payload, 1);
-
-	switch (packet_type) {
-		case CCN_DTAG_ContentObject:
-
-			if (0 > dissect_ccn_content(ccnb, sd->index, pbuf, tbuf))
-				return 0;
-			break;
-		case CCN_DTAG_Interest:
-			if (0 > dissect_ccn_interest(ccnb, sd->index, pbuf, tbuf))
-				return 0;
-			break;
-		default:
-			break;
-	}
-
-	return (sd->index);
-
-}
-
-
 
 int dissect_ccn_interest(const unsigned char *ccnb, int ccnb_size, char *pbuf, char *tbuf) {
 	struct ccn_parsed_interest interest;
@@ -765,14 +788,21 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-void print_intercept_time(const struct pcap_pkthdr *header, char *tbuf) {
+void print_intercept_time(ostream& os, const struct pcap_pkthdr *header)
+{
 	struct tm *tm;
 	if (flags.unit_time) {
-		sprintf(tbuf, "%d.%06d, ", (int) header->ts.tv_sec, (int)header->ts.tv_usec);
+		os << (int) header->ts.tv_sec
+		   << "."
+		   << setfill('0') << setw(6) << (int)header->ts.tv_usec;
 	} else {
 		tm = localtime(&(header->ts.tv_sec));
-		sprintf(tbuf, "%d:%02d:%02d.%06d, ", tm->tm_hour, tm->tm_min, tm->tm_sec, (int)header->ts.tv_usec);
+		os << (int)tm->tm_hour << ":"
+		   << setfill('0') << setw(2) << (int)tm->tm_min<< ":"
+		   << setfill('0') << setw(2) << (int)tm->tm_sec<< "."
+		   << setfill('0') << setw(2) << (int)header->ts.tv_usec;
 	}
+	os << " ";
 }
 
 void usage() {

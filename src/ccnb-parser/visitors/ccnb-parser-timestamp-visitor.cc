@@ -19,6 +19,7 @@
  */
 
 #include "ns3/ccnb-parser-timestamp-visitor.h"
+#include "ns3/ccnb-parser-name-components-visitor.h"
 #include "ns3/ccnb-parser-blob.h"
 #include <boost/iostreams/stream.hpp>
 
@@ -40,7 +41,6 @@ TimestampVisitor::visit (Blob &n)
 boost::iostreams::stream<boost::iostreams::array_source> startX(n.m_blob.get(), n.m_blobSize);
   Buffer::Iterator &start = reinterpret_cast<Buffer::Iterator&>(startX);
 #endif
-  
   
   intmax_t seconds = 0;
   intmax_t nanoseconds = 0;

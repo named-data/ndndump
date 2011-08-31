@@ -33,6 +33,8 @@ namespace CcnbParser {
 class NameComponentsVisitor : public VoidDepthFirstVisitor
 {
 public:
+  virtual void visit (Udata &n, boost::any param/*should be CcnxNameComponents&*/);
+  virtual void visit (Blob &n, boost::any param/*should be CcnxNameComponents&*/);
   virtual void visit (Dtag &n, boost::any param/*should be CcnxNameComponents&*/);
 };
 

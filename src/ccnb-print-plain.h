@@ -1,7 +1,7 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 
-#ifndef _CCNB_DECODER_H_
-#define _CCNB_DECODER_H_
+#ifndef _CCNB_PLAIN_PRINTER_H_
+#define _CCNB_PLAIN_PRINTER_H_
 
 #include "ns3/ns3-compat.h"
 #include "ns3/ccnb-parser-void-visitor.h"
@@ -27,14 +27,14 @@ public:
   CcnbPlainPrinter ();
   ~CcnbPlainPrinter ();
 
-  size_t
-  DecodeAndPrint (const char *p, size_t n);
-
 public:
-  virtual void visit (CcnbParser::Blob& n, boost::any param);
-  virtual void visit (CcnbParser::Udata&n, boost::any param);
-  virtual void visit (CcnbParser::Attr& n, boost::any param);
-  virtual void visit (CcnbParser::Ext&  n, boost::any param);
+  virtual void visit (CcnbParser::Blob& n, boost::any) {}
+  virtual void visit (CcnbParser::Udata&n, boost::any) {}
+  virtual void visit (CcnbParser::Tag&,    boost::any) {}
+  virtual void visit (CcnbParser::Dtag&,   boost::any);
+  virtual void visit (CcnbParser::Attr& n, boost::any) {}
+  virtual void visit (CcnbParser::Dattr&,  boost::any) {}
+  virtual void visit (CcnbParser::Ext&  n, boost::any) {}
 
 private:
   void ProcessTag (CcnbParser::BaseTag &n, boost::any param);
@@ -42,4 +42,4 @@ private:
 
 class PlainDecoderException {};
 
-#endif // _CCNB_DECODER_H_
+#endif // _CCNB_PLAIN_PRINTER_H_
