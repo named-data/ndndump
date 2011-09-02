@@ -111,6 +111,7 @@ void sig_handler(int signum) {
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
+    std::cout << "got packet\n"; 
 	ostringstream os;
   	print_intercept_time (os, header);
 
@@ -420,9 +421,10 @@ int main(int argc, char *argv[])
 	signal(SIGUSR1, sig_handler);
 	char *dev = NULL;
 	char errbuf[PCAP_ERRBUF_SIZE];
+    std::string pcapfilename;
 	pcap_t *handle;						/* Session handle */
 	struct bpf_program fp;				/* Compiled filter expression */
-	char filter_exp[] = "ip";
+	//char filter_exp[] = "ip";
 	bpf_u_int32 mask;					/* Netmask of the sniffing device */
 	bpf_u_int32 net;					/* IP of the sniffing device */
 
@@ -435,10 +437,10 @@ int main(int argc, char *argv[])
 	int cflag = -1;
 	int Iflag = -1;
 	int xflag = -1;
-
+    int oFlag = -1;
 	int c;
 
-	while ((c = getopt(argc, argv, "cgvsuthni:Ix")) != -1) {
+	while ((c = getopt(argc, argv, "cgvsuthni:Ixo:")) != -1) {
 		switch (c) {
 		case 'c':
 			cflag = 1;
@@ -473,6 +475,10 @@ int main(int argc, char *argv[])
 		case 'h':
 			usage();
 			return 0;
+        case 'o':
+            oFlag = 1;
+            pcapfilename = optarg;
+            break;
 		case '?':
 			if ('i' == optopt )
 				fprintf(stderr, "Option `-%c' requires an argument.\n", optopt);
@@ -542,10 +548,10 @@ int main(int argc, char *argv[])
 		flags.tcp = 1;
 	}
 
-	if (NULL == dev)
+	if (oFlag == -1 && NULL == dev)
 		dev = pcap_lookupdev(errbuf);
 
-	if (NULL == dev) {
+	if (oFlag == -1 && NULL == dev) {
 		fprintf(stderr, "couldn't find default device %s\n", errbuf);
 		return 2;
 	}
@@ -556,30 +562,47 @@ int main(int argc, char *argv[])
 	if (1 == xflag)
 		flags.print_xml = 1;
 
-	printf("Device: %s\n", dev);
+    if(oFlag == -1)
+        printf("Device: %s\n", dev);
+    else
+        std::cout << "Reading from file " << pcapfilename << "\n";
 
 	if (!prefix_selector.empty())
 	{
 		printf("Prefix selector: %s\n", prefix_selector.str().c_str() );
 	}
 
-	if (-1 == pcap_lookupnet(dev, &net, &mask, errbuf)) {
+	if ((oFlag == -1) &&  (-1 == pcap_lookupnet(dev, &net, &mask, errbuf))) {
 		fprintf(stderr, "couldn't get netmask for device %s: %s\n", dev, errbuf);
 	}
 
-	handle = pcap_open_live(dev, MAX_SNAPLEN, 0, 1000, errbuf);
-	if (NULL == handle) {
+    if(oFlag == -1)
+    {
+        handle = pcap_open_live(dev, MAX_SNAPLEN, 0, 1000, errbuf);
+    }
+    else
+    {
+        handle = pcap_open_offline(pcapfilename.c_str(), errbuf);
+    }
+    
+    if(oFlag == 1 && handle == NULL)
+    {
+        cerr << "couldn't open offline file " << pcapfilename << "\n";
+        return 2;
+    }
+    
+	if (oFlag == -1 && handle == NULL) {
 		fprintf(stderr, "couldn't open device %s: %s\n", dev, errbuf);
 		return 2;
 	}
-	if (-1 == pcap_compile(handle, &fp, filter_exp, 0, net)) {
-		fprintf(stderr, "couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
-		return 2;
-	}
-	if (-1 == pcap_setfilter(handle, &fp)) {
-		fprintf(stderr, "couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
-		return 2;
-	}
+//	if (-1 == pcap_compile(handle, &fp, filter_exp, 0, net)) {
+//		fprintf(stderr, "couldn't parse filter %s: %s\n", filter_exp, pcap_geterr(handle));
+//		return 2;
+//	}
+//	if (-1 == pcap_setfilter(handle, &fp)) {
+//		fprintf(stderr, "couldn't install filter %s: %s\n", filter_exp, pcap_geterr(handle));
+//		return 2;
+//	}
 
 	struct ccn_dict *dtags = (struct ccn_dict *)&ccn_dtag_dict;
 	ccnbDecoder = new CcnbXmlPrinter( VERBOSE_DECODE, dtags );
@@ -589,7 +612,7 @@ int main(int argc, char *argv[])
 
 	delete ccnbDecoder;
 	
-	pcap_freecode(&fp);
+	//pcap_freecode(&fp);
 	pcap_close(handle);
 
 	return 0;
@@ -624,6 +647,7 @@ void usage() {
 	// printf("  -g: print signature of Content Object\n");
 	printf("  -i: specify interface\n");
 	printf("  -n: use unit_time timestamp in seconds\n");
+    printf("  -o: use offline file for pcap data.");
 	printf("  -s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("  -t: track only tcp tunnel\n");
 	printf("  -u: track only udp tunnel\n");
