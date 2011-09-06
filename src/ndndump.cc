@@ -111,23 +111,53 @@ void sig_handler(int signum) {
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet)
 {
-    std::cout << "got packet\n"; 
 	ostringstream os;
   	print_intercept_time (os, header);
 
-	const ether_header *ether_hdr = reinterpret_cast<const ether_header *> (packet);
+	int payload_size = header->len;
+	const u_char *payload = packet;
+	
+	int type = *(reinterpret_cast<int*> (args));
 
-	int payload_size = header->len - ETHER_HDRLEN;
-	const u_char *payload = packet + ETHER_HDRLEN;
-	if (payload_size<0)
+	int frame_type = 0; // unknown
+
+	switch (type)
 		{
-			cerr << "Invalid pcap Ethernet frame" << endl;
-			return;
-		}
+		case DLT_EN10MB:
+		{
+			const ether_header *ether_hdr = reinterpret_cast<const ether_header *> (packet);
 
-	switch (ntohs(ether_hdr->ether_type))
+			payload_size -= ETHER_HDRLEN;
+			payload += ETHER_HDRLEN;
+			if (payload_size<0)
+				{
+					cerr << "Invalid pcap Ethernet frame" << endl;
+					return;
+				}
+
+			frame_type = ntohs(ether_hdr->ether_type);
+			break;
+		}
+		case DLT_PPP:
+		{
+			frame_type = *payload;
+			payload_size --;
+			payload ++;
+			
+			if (!(frame_type & 1))
+				{
+					frame_type = (frame_type << 8) | *payload;
+					payload_size --;
+					payload ++;
+				}
+			break;
+		}
+		}
+	
+	switch (frame_type)
 		{
 		case /*ETHERTYPE_IP*/0x0800:
+		case DLT_EN10MB: // pcap incapsulation
 		{
 			const ip *ip_hdr = reinterpret_cast<const ip *>(payload);
 			size_t size_ip = IP_HL(ip_hdr) * 4;
@@ -194,7 +224,10 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			break;
 		}
 		case /*ETHERTYPE_NDN*/0x7777:
-			os << ", Tunnel Type: EthernetFrame";
+			os << "Tunnel Type: EthernetFrame";
+			break;
+		case 0x0077: // pcap
+			os << "Tunnel Type: PPP";
 			break;
 		default:
 			return;
@@ -607,8 +640,14 @@ int main(int argc, char *argv[])
 	struct ccn_dict *dtags = (struct ccn_dict *)&ccn_dtag_dict;
 	ccnbDecoder = new CcnbXmlPrinter( VERBOSE_DECODE, dtags );
 	plainPrinter.SetOptions (flags.verbose, flags.signature, flags.succinct);
-	
-	pcap_loop(handle, -1, got_packet, NULL);
+
+	int type = pcap_datalink (handle);
+	if (type != DLT_EN10MB && type != DLT_PPP)
+		{
+			cerr << "Unsupported pcap format\n";
+			return 2;
+		}
+	pcap_loop(handle, -1, got_packet, reinterpret_cast<u_char*> (&type));
 
 	delete ccnbDecoder;
 	
@@ -630,7 +669,7 @@ void print_intercept_time(ostream& os, const struct pcap_pkthdr *header)
 		os << (int)tm->tm_hour << ":"
 		   << setfill('0') << setw(2) << (int)tm->tm_min<< ":"
 		   << setfill('0') << setw(2) << (int)tm->tm_sec<< "."
-		   << setfill('0') << setw(2) << (int)header->ts.tv_usec;
+		   << setfill('0') << setw(6) << (int)header->ts.tv_usec;
 	}
 	os << " ";
 }
