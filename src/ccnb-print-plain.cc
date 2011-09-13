@@ -1,10 +1,10 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 
 #include "config.h"
+#include <iostream>
 #include "ccnb-print-plain.h"
 #include <boost/foreach.hpp>
 
-#include <iostream>
 
 #include "ns3/ccnb-parser-attr.h"
 #include "ns3/ccnb-parser-base-attr.h"

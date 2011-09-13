@@ -1,9 +1,9 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 
+#include <iostream>
 #include "print-helper.h"
 
 #include <ctype.h>
-#include <iostream>
 #include <iomanip>
 using namespace std;
 

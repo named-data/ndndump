@@ -1,6 +1,7 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 
 #include "config.h"
+#include <iostream>
 #include "ccnb-print-xml.h"
 #include <boost/foreach.hpp>
 #include <boost/archive/iterators/base64_from_binary.hpp>
@@ -8,7 +9,6 @@
 #include <boost/archive/iterators/transform_width.hpp>
 #include <boost/iostreams/stream.hpp>
 
-#include <iostream>
 #include "print-helper.h"
 
 #include "ns3/ccnb-parser-attr.h"

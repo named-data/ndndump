@@ -13,7 +13,7 @@ AC_PROG_CC
 AC_PROG_CC_C_O
 AC_PROG_CXX
 AC_PROG_CXX_C_O
-AX_BOOST_BASE([1.45],
+AX_BOOST_BASE([1.40],
   [AX_BOOST_REGEX],
   [AC_MSG_ERROR([Required boost libraries not found])])
 

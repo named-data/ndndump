@@ -16,6 +16,7 @@
  */
 
 #include "config.h"
+#include <iostream>
 #include "headers.h"
 
 extern "C"
