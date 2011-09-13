@@ -284,13 +284,13 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		{
 			cerr << diagnostic_information(e) << endl;
 		}
-	catch (...)
-		{
-			cerr << "exception" << endl;
-			// packet parsing error
-		}
+	// catch (...)
+	// 	{
+	// 		cerr << "exception" << endl;
+	// 		// packet parsing error
+	// 	}
 
-	kill(getpid(), SIGUSR1);
+	// kill(getpid(), SIGUSR1);
 }
 
 
@@ -686,7 +686,7 @@ void usage() {
 	// printf("  -g: print signature of Content Object\n");
 	printf("  -i: specify interface\n");
 	printf("  -n: use unit_time timestamp in seconds\n");
-    printf("  -o: use offline file for pcap data.");
+    printf("  -o: use offline file for pcap data\n");
 	printf("  -s: sinccinct mode, no TCP/IP info and  minimal info about Interest or Content Object\n");
 	printf("  -t: track only tcp tunnel\n");
 	printf("  -u: track only udp tunnel\n");

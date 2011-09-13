@@ -29,6 +29,8 @@ namespace CcnbParser {
 
 Blob::Blob (Buffer::Iterator &start, uint32_t length)
 {
+  if (length==0) return;
+  
 #ifndef NOT_NS3
   start.Read (m_blob.Begin (), length);
 #else
