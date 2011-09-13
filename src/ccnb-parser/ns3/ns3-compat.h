@@ -5,8 +5,9 @@
 #ifndef _NS3_COMPAT_H_
 #define _NS3_COMPAT_H_
 
-#include <sys/types.h>
 #include <boost/shared_ptr.hpp>
+#include <inttypes.h>
+#include <iostream>
 
 #define Ptr boost::shared_ptr
 
@@ -32,7 +33,7 @@ boost::shared_ptr<T> StaticCast(boost::shared_ptr<U> const & r) { return boost::
 template<class T, class U>
 boost::shared_ptr<T> DynamicCast(boost::shared_ptr<U> const & r) { return boost::dynamic_pointer_cast<T>(r); }
 
-typedef unsigned char uint8_t; // types.h defines  u_char
+typedef u_char uint8_t; // types.h defines  u_char
 
 class Buffer : public boost::shared_ptr<char>
 {
