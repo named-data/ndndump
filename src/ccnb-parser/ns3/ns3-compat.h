@@ -7,6 +7,7 @@
 
 #include <boost/shared_ptr.hpp>
 #include <inttypes.h>
+#include <sys/types.h>
 #include <iostream>
 
 #define Ptr boost::shared_ptr

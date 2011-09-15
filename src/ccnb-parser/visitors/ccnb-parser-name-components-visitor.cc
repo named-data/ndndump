@@ -48,16 +48,16 @@ NameComponentsVisitor::visit (Blob &n, boost::any param)
 {
   // Buffer n.m_blob;
 
-  if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
-    PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
-  else
-    {
-      ostreambuf_iterator<char> out_it (cout); // stdout iterator
-      // need to encode to base64
-      std::copy (base64_t (n.m_blob.get ()),
-                 base64_t (n.m_blob.get ()+n.m_blobSize),
-                 out_it);
-    }
+  // if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
+  PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+  // else
+  //   {
+  //     ostreambuf_iterator<char> out_it (cout); // stdout iterator
+  //     // need to encode to base64
+  //     std::copy (base64_t (n.m_blob.get ()),
+  //                base64_t (n.m_blob.get ()+n.m_blobSize),
+  //                out_it);
+  //   }
 }
  
 void

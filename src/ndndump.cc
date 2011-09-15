@@ -166,8 +166,8 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 				cerr << "invalid IP header len "<< size_ip <<" bytes" << endl;
 				return;
 			}
-			os << "From: " << inet_ntoa(ip_hdr->ip_src) << ", "
-			   << "To: "   << inet_ntoa(ip_hdr->ip_dst);
+			os << "From: " << inet_ntoa(ip_hdr->ip_src) << ", ";
+			os << "To: "   << inet_ntoa(ip_hdr->ip_dst);
 
 			payload_size -= size_ip;
 			payload += size_ip;
