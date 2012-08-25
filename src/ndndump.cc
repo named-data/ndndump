@@ -285,11 +285,11 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 		{
 			cerr << diagnostic_information(e) << endl;
 		}
-	// catch (...)
-	// 	{
-	// 		cerr << "exception" << endl;
-	// 		// packet parsing error
-	// 	}
+	catch (...)
+		{
+			// cerr << "exception" << endl;
+			// packet parsing error
+		}
 
 	// kill(getpid(), SIGUSR1);
 }

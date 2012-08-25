@@ -4,9 +4,10 @@
 #include <iostream>
 #include "ccnb-print-xml.h"
 #include <boost/foreach.hpp>
-#include <boost/archive/iterators/base64_from_binary.hpp>
-#include <boost/archive/iterators/base64_from_binary.hpp>
 #include <boost/archive/iterators/transform_width.hpp>
+#include <boost/iterator/transform_iterator.hpp>
+#include <boost/archive/iterators/dataflow_exception.hpp>
+
 #include <boost/iostreams/stream.hpp>
 
 #include "print-helper.h"
@@ -48,7 +49,26 @@ CcnbXmlPrinter::DecodeAndPrint (const char *p, size_t n)
 }
 
 using namespace boost::archive::iterators;
-typedef base64_from_binary<transform_width<string::const_iterator, 6, 8> > base64_t;
+using namespace boost;
+
+
+// typedef base64_from_binary<transform_width<string::const_iterator, 6, 8> > base64_t;
+
+template<class CharType>
+struct hex_from_4_bit
+{
+  typedef CharType result_type;
+  CharType operator () (CharType ch) const
+  {
+    const char *lookup_table = "0123456789abcdef";
+    // cout << "New character: " << (int) ch << " (" << (char) ch << ")" << "\n";
+    BOOST_ASSERT (ch < 16);
+    return lookup_table[static_cast<size_t>(ch)];
+  }
+};
+
+typedef transform_iterator<hex_from_4_bit<string::const_iterator::value_type>,
+                           transform_width<string::const_iterator, 4, 8, string::const_iterator::value_type> > string_from_binary;
 
 
 //////////////////////////////////////////////////////////////////////
@@ -57,16 +77,25 @@ void
 CcnbXmlPrinter::visit (Blob &n, boost::any param)
 {
   // Buffer n.m_blob;
-
-  if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
-    PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
-  else
+  // std::cout << "===" << n.m_blobSize << ", " << (int)n.m_blob.get ()[0] << "===";
+  
+  if (n.m_blobSize > 0)
     {
-      ostreambuf_iterator<char> out_it (cout); // stdout iterator
-      // need to encode to base64
-      std::copy (base64_t (n.m_blob.get ()),
-                 base64_t (n.m_blob.get ()+n.m_blobSize),
-                 out_it);
+      if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
+        PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+      else
+        {
+          ostreambuf_iterator<char> out_it (cout); // stdout iterator
+
+          copy (string_from_binary (n.m_blob.get ()),
+                string_from_binary (n.m_blob.get ()+n.m_blobSize),
+                out_it);
+
+          // need to encode to base64
+          // std::copy (base64_t (n.m_blob.get ()),
+          //            base64_t (n.m_blob.get ()+n.m_blobSize),
+          //            out_it);
+        }
     }
 }
  

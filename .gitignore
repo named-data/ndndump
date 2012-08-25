@@ -20,3 +20,4 @@ configure
 *.swp
 *.o
 cscope*
+.DS*
