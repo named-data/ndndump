@@ -49,7 +49,11 @@ NameComponentsVisitor::visit (Blob &n, boost::any param)
   // Buffer n.m_blob;
 
   // if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
-  PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+  if (n.m_blob.get () != 0)
+    PrintHelper::print_percent_escaped (cout, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+  else
+    cout << "...";
+  
   // else
   //   {
   //     ostreambuf_iterator<char> out_it (cout); // stdout iterator

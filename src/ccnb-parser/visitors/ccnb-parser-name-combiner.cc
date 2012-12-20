@@ -49,16 +49,23 @@ NameCombiner::visit (Blob &n, boost::any param)
 {
   // Buffer n.m_blob;
   ostream &os = *(boost::any_cast<ostream*> (param));
-  
-  if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
-    PrintHelper::print_percent_escaped (os, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+
+  if (n.m_blob.get () != 0)
+    {
+      if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))
+        PrintHelper::print_percent_escaped (os, (unsigned char*)n.m_blob.get (), n.m_blobSize);
+      else
+        {
+          ostreambuf_iterator<char> out_it (os); // stdout iterator
+          // need to encode to base64
+          std::copy (base64_t (n.m_blob.get ()),
+                     base64_t (n.m_blob.get ()+n.m_blobSize),
+                     out_it);
+        }
+    }
   else
     {
-      ostreambuf_iterator<char> out_it (os); // stdout iterator
-      // need to encode to base64
-      std::copy (base64_t (n.m_blob.get ()),
-                 base64_t (n.m_blob.get ()+n.m_blobSize),
-                 out_it);
+      os << "...";
     }
 }
  

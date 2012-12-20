@@ -16,8 +16,11 @@ stamp-h1
 compile
 *~
 config.h.in
-configure
 *.swp
 *.o
 cscope*
 .DS*
+.deps
+.waf*
+.lock-waf_darwin_build
+build/

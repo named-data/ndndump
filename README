@@ -8,5 +8,3 @@ $ ./configure
 $ make
 $ make install
 
-if that failed, perhaps you need to generate 'configure' file by yourself.
-$ ./autogen.sh

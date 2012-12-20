@@ -229,6 +229,8 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 			break;
 		case 0x0077: // pcap
 			os << "Tunnel Type: PPP";
+			payload_size -= 2;
+			payload += 2;
 			break;
 		default:
 			return;
