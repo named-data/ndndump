@@ -46,6 +46,7 @@ CcnbXmlPrinter::DecodeAndPrint (const char *p, size_t n)
 
   Ptr<Block> root = Block::ParseBlock (reinterpret_cast<Buffer::Iterator&> (in)); //not a nice hack, but should work
   root->accept (*this, string(""));
+  return n;
 }
 
 using namespace boost::archive::iterators;

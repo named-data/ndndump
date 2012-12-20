@@ -71,6 +71,8 @@ class Time
 			return Time (value,0);
 		else if (unit==NS)
 			return Time (0, value);
+		else 
+			return Time (0, 0);
 	}
 
 	Time operator+ (const Time &o)

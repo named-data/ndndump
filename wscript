@@ -8,6 +8,7 @@ from waflib import Build, Logs
 def options(opt):
     opt.load('compiler_cxx boost ccnx')
     opt.add_option('--debug',action='store_true',default=False,dest='debug',help='''debugging mode''')
+    opt.add_option('--yes',action='store_true',default=False) # for autoconf/automake/make compatibility
 
 def configure(conf):
     conf.load("compiler_cxx boost ccnx")
