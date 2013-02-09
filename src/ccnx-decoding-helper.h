@@ -26,6 +26,7 @@
 #include <boost/shared_ptr.hpp>
 #include <istream>
 #include <list>
+#include <stdint.h>
 
 class Block;
 class Blob;
