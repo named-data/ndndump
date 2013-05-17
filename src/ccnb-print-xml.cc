@@ -79,7 +79,6 @@ CcnbXmlPrinter::visit (Blob &n, boost::any param)
 {
   // Buffer n.m_blob;
   // std::cout << "===" << n.m_blobSize << ", " << (int)n.m_blob.get ()[0] << "===";
-  
   if (n.m_blobSize > 0)
     {
       if (PrintHelper::is_text_encodable ((unsigned char*)n.m_blob.get (), 0, n.m_blobSize))

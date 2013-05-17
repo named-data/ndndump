@@ -59,7 +59,7 @@ class CcnbDecodingException {};
  */
 enum ccn_tt {
   CCN_EXT,        /**< starts composite extension - numval is subtype */
-  CCN_TAG,        /**< starts composite - numval is tagnamelen-1 */ 
+  CCN_TAG,        /**< starts composite - numval is tagnamelen-1 */
   CCN_DTAG,       /**< starts composite - numval is tagdict index (enum ccn_dtag) */
   CCN_ATTR,       /**< attribute - numval is attrnamelen-1, value follows */
   CCN_DATTR,      /**< attribute numval is attrdict index */
@@ -170,8 +170,28 @@ enum ccn_dtag {
   CCN_DTAG_StatusCode = 113,
   CCN_DTAG_StatusText = 114,
   CCN_DTAG_SequenceNumber = 256,
-  CCN_DTAG_CCNProtocolDataUnit = 17702112
+  CCN_DTAG_CCNProtocolDataUnit = 17702112,
+
+  NdnlpData = 20653248,
+  NdnlpSequence = 20653249,
+  NdnlpFlags = 20653250,
+  NdnlpFragIndex = 20653251,
+  NdnlpFragCount = 20653252,
+  NdnlpPayload = 20653253,
+  NdnlpAck = 20653254,
+  NdnlpAckBlock = 20653255,
+  NdnlpSequenceBase = 20653256,
+  NdnlpBitmap = 20653257,
+
+  DTAG_NdnldConnection = 20653264,
+  DTAG_NdnldLowerProtocol = 20653265,
+  DTAG_NdnldLocalInterface = 20653266,
+  DTAG_NdnldSentPktsCapacity = 20653267,
+  DTAG_NdnldRetransmitCount = 20653268,
+  DTAG_NdnldRetransmitTime = 20653269,
+  DTAG_NdnldAcknowledgeTime = 20653270
 };
+
 
 } // namespace CcnxParser
 } // namespace ns3

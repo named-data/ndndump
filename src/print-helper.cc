@@ -11,7 +11,7 @@ extern "C"
 {
 #include <ccn/coding.h>
 }
-  
+
 const char Base64[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 

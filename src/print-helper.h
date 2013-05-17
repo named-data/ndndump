@@ -7,6 +7,7 @@
 #include <iostream>
 
 struct ccn_dict_entry;
+extern struct ccn_dict ccn_dtag_dict2;
 
 class PrintHelper
 {
