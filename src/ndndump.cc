@@ -1,5 +1,5 @@
 /* ndndump.c
- * Adapted from ccn plugin for wireshark in the ccnx package
+ * Adapted from ndn plugin for wireshark in the ndnx package
  *
  * Copyright (C) 2011 IRL, CS, UCLA.
  *
@@ -21,10 +21,10 @@
 
 extern "C"
 {
-#include <ccn/ccn.h>
-#include <ccn/ccnd.h>
-#include <ccn/coding.h>
-#include <ccn/uri.h>
+#include <ndn/ndn.h>
+#include <ndn/ndnd.h>
+#include <ndn/coding.h>
+#include <ndn/uri.h>
 }
 
 #include <sys/time.h>
@@ -49,13 +49,13 @@ using namespace boost;
 using namespace std;
 
 #include "print-helper.h"
-#include "ccnb-print-xml.h"
-#include "ccnb-print-plain.h"
-#include "ns3/ccnb-parser-block.h"
-#include "ns3/ccnb-parser-dtag.h"
-#include "ns3/ccnb-parser-blob.h"
-#include "ns3/ccnb-parser-name-combiner.h"
-#include "ns3/ccnb-parser-non-negative-integer-visitor.h"
+#include "ndnb-print-xml.h"
+#include "ndnb-print-plain.h"
+#include "ns3/ndnb-parser-block.h"
+#include "ns3/ndnb-parser-dtag.h"
+#include "ns3/ndnb-parser-blob.h"
+#include "ns3/ndnb-parser-name-combiner.h"
+#include "ns3/ndnb-parser-non-negative-integer-visitor.h"
 
 #define MAX_SNAPLEN 65535
 #define INTEREST_BYTE0 0x01
@@ -68,7 +68,7 @@ using namespace std;
 #define NDNLP_BYTE1 'd'
 
 struct flags_t {
-  int ccnb;
+  int ndnb;
   int verbose;
   int signature;
   int succinct;
@@ -82,9 +82,9 @@ static struct flags_t flags = {0, 0, 0, 0, 0, 1, 1, 0, 0};
 
 static regex prefix_selector;
 
-static CcnbXmlPrinter *ccnbDecoder = NULL; ///< will be initialized before loop starts
-static CcnbPlainPrinter plainPrinter;
-static CcnbParser::NameCombiner nameCombiner; ///< to work with name filters
+static NdnbXmlPrinter *ndnbDecoder = NULL; ///< will be initialized before loop starts
+static NdnbPlainPrinter plainPrinter;
+static NdnbParser::NameCombiner nameCombiner; ///< to work with name filters
 
 void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *packet);
 void print_intercept_time(ostream &, const struct pcap_pkthdr *header);
@@ -255,7 +255,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
         (payload[0] == CONTENT_OBJECT_BYTE0 && payload[1] == CONTENT_OBJECT_BYTE1) ||
         (payload[0] == NDNLP_BYTE0 && payload[1] == NDNLP_BYTE1)))
     {
-      return; //definitely not CCNx packet
+      return; //definitely not NDNx packet
     }
 
   boost::iostreams::stream
@@ -263,11 +263,11 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 
   try
     {
-      Ptr<CcnbParser::Dtag> root = DynamicCast<CcnbParser::Dtag> (CcnbParser::Block::ParseBlock (reinterpret_cast<Buffer::Iterator&> (in)));
+      Ptr<NdnbParser::Dtag> root = DynamicCast<NdnbParser::Dtag> (NdnbParser::Block::ParseBlock (reinterpret_cast<Buffer::Iterator&> (in)));
 
       if (payload[0] == NDNLP_BYTE0 && payload[1] == NDNLP_BYTE1)
         {
-          if (root && root->m_dtag != CcnbParser::NdnlpData)
+          if (root && root->m_dtag != NdnbParser::NdnlpData)
             {
               return;
             }
@@ -276,25 +276,25 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
 
           // if (flags.print_xml)
           //   {
-          //     root->accept (*ccnbDecoder, string(""));
+          //     root->accept (*ndnbDecoder, string(""));
           //     cout << "\n";
           //   }
 
-          Ptr<CcnbParser::Dtag> payload;
-          for (std::list<Ptr<CcnbParser::Block> >::iterator i = root->m_nestedTags.begin (); i != root->m_nestedTags.end (); i++)
+          Ptr<NdnbParser::Dtag> payload;
+          for (std::list<Ptr<NdnbParser::Block> >::iterator i = root->m_nestedTags.begin (); i != root->m_nestedTags.end (); i++)
             {
-              Ptr<CcnbParser::Dtag> tag = DynamicCast<CcnbParser::Dtag> (*i);
+              Ptr<NdnbParser::Dtag> tag = DynamicCast<NdnbParser::Dtag> (*i);
               if (!tag)
                 return;
 
-              if (tag->m_dtag == CcnbParser::NdnlpSequence)
+              if (tag->m_dtag == NdnbParser::NdnlpSequence)
                 {
-                  Ptr<CcnbParser::Blob> blob = DynamicCast<CcnbParser::Blob> (tag->m_nestedTags.front ());
+                  Ptr<NdnbParser::Blob> blob = DynamicCast<NdnbParser::Blob> (tag->m_nestedTags.front ());
                   os << ", NdnlpSequence: ";
                   PrintHelper::print_percent_escaped (os, (unsigned char*)blob->m_blob.get (), blob->m_blobSize);
                 }
 
-              if (tag->m_dtag == CcnbParser::NdnlpPayload)
+              if (tag->m_dtag == NdnbParser::NdnlpPayload)
                 {
                   payload = tag;
                   break;
@@ -303,18 +303,18 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
           if (payload == 0 || payload->m_nestedTags.empty ())
             return;
 
-          Ptr<CcnbParser::Blob> blob = DynamicCast<CcnbParser::Blob> (*payload->m_nestedTags.begin ());
+          Ptr<NdnbParser::Blob> blob = DynamicCast<NdnbParser::Blob> (*payload->m_nestedTags.begin ());
           if (blob == 0)
             return;
 
           boost::iostreams::stream
             <boost::iostreams::array_source> in2 (blob->m_blob.get (), blob->m_blobSize);
 
-          root = DynamicCast<CcnbParser::Dtag> (CcnbParser::Block::ParseBlock (reinterpret_cast<Buffer::Iterator&> (in2)));
+          root = DynamicCast<NdnbParser::Dtag> (NdnbParser::Block::ParseBlock (reinterpret_cast<Buffer::Iterator&> (in2)));
         }
 
-      if (root && (root->m_dtag==CCN_DTAG_Interest ||
-                   root->m_dtag==CCN_DTAG_ContentObject))
+      if (root && (root->m_dtag==NDN_DTAG_Interest ||
+                   root->m_dtag==NDN_DTAG_ContentObject))
         {
           ostringstream prefix;
           root->accept (nameCombiner, boost::any(static_cast<ostream*>(&prefix)));
@@ -329,10 +329,10 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
           if (flags.print_xml)
             {
               cout << "\n";
-              root->accept (*ccnbDecoder, string(""));
+              root->accept (*ndnbDecoder, string(""));
             }
 
-          if (flags.ccnb)
+          if (flags.ndnb)
             {
               cout << "\n";
               PrintHelper::print_payload(cout, payload, payload_size);
@@ -458,7 +458,7 @@ int main(int argc, char *argv[])
     }
 
   if (1 == cflag)
-    flags.ccnb = 1;
+    flags.ndnb = 1;
   if (1 == gflag)
     flags.signature = 1;
   if (1 == nflag)
@@ -539,8 +539,8 @@ int main(int argc, char *argv[])
   //		return 2;
   //	}
 
-  struct ccn_dict *dtags = (struct ccn_dict *)&ccn_dtag_dict2;
-  ccnbDecoder = new CcnbXmlPrinter( VERBOSE_DECODE, dtags );
+  struct ndn_dict *dtags = (struct ndn_dict *)&ndn_dtag_dict2;
+  ndnbDecoder = new NdnbXmlPrinter( VERBOSE_DECODE, dtags );
   plainPrinter.SetOptions (flags.verbose, flags.signature, flags.succinct);
 
   int type = pcap_datalink (handle);
@@ -551,7 +551,7 @@ int main(int argc, char *argv[])
     }
   pcap_loop(handle, -1, got_packet, reinterpret_cast<u_char*> (&type));
 
-  delete ccnbDecoder;
+  delete ndnbDecoder;
 
   //pcap_freecode(&fp);
   pcap_close(handle);
@@ -582,7 +582,7 @@ void usage() {
          "\n");
   printf("  -h: show usage\n");
   printf("  -I: invert prefix selection condition\n");
-  printf("  -c: print the whole ccnb\n");
+  printf("  -c: print the whole ndnb\n");
   printf("  -x: print decoded XML of the whole packet\n");
   // for now only in XML format
   // printf("  -g: print signature of Content Object\n");
@@ -596,6 +596,6 @@ void usage() {
   printf("  [prefix selector]: dump packets whose name satisfies this regular expression\n\n");
   printf("\ndefault: \n");
   printf("  select the default interface\n");
-  printf("  print timestamp and TCP/IP info of the ccn tunnel\n");
+  printf("  print timestamp and TCP/IP info of the ndn tunnel\n");
   printf("  print names of Interest and ContentObject\n");
 }

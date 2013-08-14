@@ -6,19 +6,19 @@
 #include <stddef.h>
 #include <iostream>
 
-struct ccn_dict_entry;
-extern struct ccn_dict ccn_dtag_dict2;
+struct ndn_dict_entry;
+extern struct ndn_dict ndn_dtag_dict2;
 
 class PrintHelper
 {
 public:
   static const char *
-  dict_name_from_number (int ndx, const struct ccn_dict_entry *dict, int n);
+  dict_name_from_number (int ndx, const struct ndn_dict_entry *dict, int n);
   
   static int
   is_text_encodable (const unsigned char *p, size_t start, size_t length);
   
-  /* see ccn_uri_append_percentescaped */
+  /* see ndn_uri_append_percentescaped */
   static void
   print_percent_escaped (std::ostream &os, const unsigned char *data, size_t size);
 

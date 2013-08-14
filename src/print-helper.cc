@@ -9,14 +9,14 @@ using namespace std;
 
 extern "C"
 {
-#include <ccn/coding.h>
+#include <ndn/coding.h>
 }
 
 const char Base64[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";
 
 const char *
-PrintHelper::dict_name_from_number (int ndx, const struct ccn_dict_entry *dict, int n)
+PrintHelper::dict_name_from_number (int ndx, const struct ndn_dict_entry *dict, int n)
 {
   int i;
   for (i = 0; i < n; i++)
@@ -44,7 +44,7 @@ PrintHelper::is_text_encodable(const unsigned char *p, size_t start, size_t leng
   return (1);
 }
 
-/* see ccn_uri_append_percentescaped */
+/* see ndn_uri_append_percentescaped */
 void
 PrintHelper::print_percent_escaped(ostream& os, const unsigned char *data, size_t size)
 {
