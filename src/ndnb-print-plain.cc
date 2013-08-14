@@ -70,10 +70,10 @@ NdnbPlainPrinter::visit (Dtag &n, boost::any param)
         nested->accept (*this, param);
       break;
       
-    case NdnbParser::NDN_DTAG_ContentObject:
+    case NdnbParser::NDN_DTAG_Data:
       if (!m_minimal)
         cout << "Packet Type: ";
-      cout << "ContentObject";
+      cout << "Data";
       BOOST_FOREACH (Ptr<Block> nested, n.m_nestedTags)
         nested->accept (*this, param);
       break;

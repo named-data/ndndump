@@ -306,7 +306,7 @@ void got_packet(u_char *args, const struct pcap_pkthdr *header, const u_char *pa
         }
 
       if (root && (root->m_dtag==NDN_DTAG_Interest ||
-                   root->m_dtag==NDN_DTAG_ContentObject))
+                   root->m_dtag==NDN_DTAG_Data))
         {
           ostringstream prefix;
           root->accept (nameCombiner, boost::any(static_cast<ostream*>(&prefix)));
@@ -589,5 +589,5 @@ void usage() {
   printf("\ndefault: \n");
   printf("  select the default interface\n");
   printf("  print timestamp and TCP/IP info of the ndn tunnel\n");
-  printf("  print names of Interest and ContentObject\n");
+  printf("  print names of Interest and Data\n");
 }

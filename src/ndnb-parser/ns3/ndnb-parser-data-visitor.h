@@ -18,8 +18,8 @@
  * Author: Alexander Afanasyev <alexander.afanasyev@ucla.edu>
  */
 
-#ifndef _NDNB_PARSER_CONTENT_OBJECT_VISITOR_H_
-#define _NDNB_PARSER_CONTENT_OBJECT_VISITOR_H_
+#ifndef _NDNB_PARSER_DATA_VISITOR_H_
+#define _NDNB_PARSER_DATA_VISITOR_H_
 
 #include "ndnb-parser-void-depth-first-visitor.h"
 
@@ -28,23 +28,23 @@ namespace NdnbParser {
 
 /**
  * \ingroup ndnx-ndnb
- * \brief Visitor that fills fields in NdnxContentObjectHeader
+ * \brief Visitor that fills fields in NdnxDataHeader
  *
  * Usage example:
  * \code
- *   Ptr<NdnxContentObjectHeader> header = Create<NdnxContentObjectHeader> ();
+ *   Ptr<NdnxDataHeader> header = Create<NdnxDataHeader> ();
  *   Ptr<NdnbParser::Block> root = NdnbParser::Block::ParseBlock (i);
- *   ContentObjectVisitor visitor;
+ *   DataVisitor visitor;
  *   root->accept (visitor, *header); 
  * \endcode
  */
-class ContentObjectVisitor : public VoidDepthFirstVisitor
+class DataVisitor : public VoidDepthFirstVisitor
 {
 public:
-  virtual void visit (Dtag &n, boost::any param/*should be NdnxContentObjectHeader&*/);
+  virtual void visit (Dtag &n, boost::any param/*should be NdnxDataHeader&*/);
 };
 
 }
 }
 
-#endif // _NDNB_PARSER_CONTENT_OBJECT_VISITOR_H_
+#endif // _NDNB_PARSER_DATA_VISITOR_H_

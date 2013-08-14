@@ -51,7 +51,7 @@ static const struct ndn_dict_entry ndn_tagdict[] = {
     {NDN_DTAG_PublisherCertificateDigest, "PublisherCertificateDigest"},
     {NDN_DTAG_PublisherIssuerKeyDigest, "PublisherIssuerKeyDigest"},
     {NDN_DTAG_PublisherIssuerCertificateDigest, "PublisherIssuerCertificateDigest"},
-    {NDN_DTAG_ContentObject, "ContentObject"},
+    {NDN_DTAG_Data, "Data"},
     {NDN_DTAG_WrappedKey, "WrappedKey"},
     {NDN_DTAG_WrappingKeyIdentifier, "WrappingKeyIdentifier"},
     {NDN_DTAG_WrapAlgorithm, "WrapAlgorithm"},

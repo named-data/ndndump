@@ -119,7 +119,7 @@ enum ndn_dtag {
   NDN_DTAG_PublisherCertificateDigest = 61,
   NDN_DTAG_PublisherIssuerKeyDigest = 62,
   NDN_DTAG_PublisherIssuerCertificateDigest = 63,
-  NDN_DTAG_ContentObject = 64,	/* 20090915 */
+  NDN_DTAG_Data = 64,	/* 20090915 */
   NDN_DTAG_WrappedKey = 65,
   NDN_DTAG_WrappingKeyIdentifier = 66,
   NDN_DTAG_WrapAlgorithm = 67,

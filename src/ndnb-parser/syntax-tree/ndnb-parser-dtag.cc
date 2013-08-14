@@ -60,7 +60,7 @@ Dtag::Dtag (Buffer::Iterator &start, uint32_t dtag)
     {
 #ifndef NOT_NS3
       // hack #2. Stop processing nested blocks if last block was <Content>
-      if (m_dtag == NDN_DTAG_ContentObject && // we are in <ContentObject>
+      if (m_dtag == NDN_DTAG_Data && // we are in <Data>
           DynamicCast<Dtag> (m_nestedTags.back())!=0 && // last block is DTAG
           DynamicCast<Dtag> (m_nestedTags.back())->m_dtag == NDN_DTAG_Content) 
         {

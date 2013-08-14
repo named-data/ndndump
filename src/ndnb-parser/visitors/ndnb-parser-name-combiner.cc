@@ -96,7 +96,7 @@ NameCombiner::visit (Dtag &n, boost::any param)
         break;
       }
     case NDN_DTAG_Interest:
-    case NDN_DTAG_ContentObject:
+    case NDN_DTAG_Data:
     case NDN_DTAG_Component:
       // cout << "preved \n";
       VoidDepthFirstVisitor::visit (n, param);
