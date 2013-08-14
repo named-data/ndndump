@@ -1,16 +1,12 @@
 /* -*-  Mode: C++; c-file-style: "gnu"; indent-tabs-mode:nil; -*- */
 
+#include "dtag-dict.h"
 #include <iostream>
 #include "print-helper.h"
 
 #include <ctype.h>
 #include <iomanip>
 using namespace std;
-
-extern "C"
-{
-#include <ndn/coding.h>
-}
 
 const char Base64[] =
   "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789+/";

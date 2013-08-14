@@ -3,15 +3,11 @@
 #ifndef _NDNB_DECODER_H_
 #define _NDNB_DECODER_H_
 
+#include "dtag-dict.h"
 #include "ns3/ns3-compat.h"
 #include "ns3/ndnb-parser-void-visitor.h"
 
 using namespace ns3;
-
-extern "C"
-{
-#include <ndn/coding.h>
-} // extern "C"
 
 /* formatting_flags */
 #define FORCE_BINARY   (1 << 0)

@@ -24,22 +24,19 @@
 #include <boost/foreach.hpp>
 #include <boost/iostreams/read.hpp>
 #include "print-helper.h"
+#include "dtag-dict.h"
 
 namespace Ndnx // again, add compatibility with NS-3 code
 {
-extern "C"
-{
-#include <ndn/coding.h>
-} // extern "C"
 
 #undef NDN_CLOSE
 const uint8_t NDN_CLOSE = 0x00;
 } // namespace Ndnx
 
-// const uint8_t NDN_TT_BITS = 3;
-// const uint8_t NDN_TT_MASK = ((1 << NDN_TT_BITS) - 1);
-// const uint8_t NDN_MAX_TINY= ((1 << (7-NDN_TT_BITS)) - 1);
-// const uint8_t NDN_TT_HBIT = ((uint8_t)(1 << 7));
+const uint8_t NDN_TT_BITS = 3;
+const uint8_t NDN_TT_MASK = ((1 << NDN_TT_BITS) - 1);
+const uint8_t NDN_MAX_TINY= ((1 << (7-NDN_TT_BITS)) - 1);
+const uint8_t NDN_TT_HBIT = ((uint8_t)(1 << 7));
 
 Ptr<Block> Block::ParseBlock (Buffer::Iterator &start)
 {

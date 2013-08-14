@@ -19,14 +19,6 @@
 #include <iostream>
 #include "headers.h"
 
-extern "C"
-{
-#include <ndn/ndn.h>
-#include <ndn/ndnd.h>
-#include <ndn/coding.h>
-#include <ndn/uri.h>
-}
-
 #include <sys/time.h>
 #include <unistd.h>
 #include <ctype.h>
