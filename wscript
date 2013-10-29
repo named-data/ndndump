@@ -11,7 +11,8 @@ def options(opt):
 
 def configure(conf):
     conf.load("compiler_c compiler_cxx boost flags")
-    conf.check_cfg(path='pcap-config', package="libpcap", args=['--cflags', '--libs'], uselib_store='PCAP', mandatory=True)
+    conf.check_cfg(path='pcap-config', package="libpcap", args=['--libs'], uselib_store='PCAP', mandatory=True)
+    conf.check_cfg(path='pcap-config', package="libpcap", args=['--cflags'], uselib_store='PCAP', mandatory=True)
 
     conf.check_boost(lib='system iostreams regex')
 
