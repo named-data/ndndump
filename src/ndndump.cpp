@@ -151,21 +151,19 @@ Ndndump::onCapturedPacket(const struct pcap_pkthdr* header, const uint8_t* packe
     return;
   }
 
-  std::cout << os.str() << ", ";
-
   /// \todo Detect various header (LocalControlHeader, NDNLP, etc.)
 
   try {
     if (block.type() == Tlv::Interest) {
       Interest interest(block);
       if (matchesFilter(interest.getName())) {
-        std::cout << "INTEREST: " << interest << std::endl;
+        std::cout << os.str() << ", " << "INTEREST: " << interest << std::endl;
       }
     }
     else if (block.type() == Tlv::Data) {
       Data data(block);
       if (matchesFilter(data.getName())) {
-        std::cout << "DATA: " << data.getName() << std::endl;
+        std::cout << os.str() << ", " << "DATA: " << data.getName() << std::endl;
       }
     }
   }

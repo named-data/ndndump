@@ -43,7 +43,7 @@ void
 usage(std::ostream& os, const std::string& appName, const po::options_description& options)
 {
   os << "Usage:\n"
-     << "  " << appName << " [-i interface] [-p name-filter] [tcpdump-expression] \n"
+     << "  " << appName << " [-i interface] [-f name-filter] [tcpdump-expression] \n"
      << "\n"
      << "Default tcpdump-expression:\n"
      << "  '(ether proto 0x8624) || (tcp port 6363) || (udp port 6363)'\n"
