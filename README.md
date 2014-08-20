@@ -23,7 +23,7 @@ The following commands will configure, build, and install ndndump:
 ## Command line options
 
     Usage:
-      ./build/ndndump [-i interface] [-p name-filter] [tcpdump-expression]
+      ./build/ndndump [-i interface] [-f name-filter] [tcpdump-expression]
 
     Default tcpdump-expression:
       '(ether proto 0x8624) || (tcp port 6363) || (udp port 6363)'
