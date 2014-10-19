@@ -154,20 +154,20 @@ Ndndump::onCapturedPacket(const struct pcap_pkthdr* header, const uint8_t* packe
   /// \todo Detect various header (LocalControlHeader, NDNLP, etc.)
 
   try {
-    if (block.type() == Tlv::Interest) {
+    if (block.type() == tlv::Interest) {
       Interest interest(block);
       if (matchesFilter(interest.getName())) {
         std::cout << os.str() << ", " << "INTEREST: " << interest << std::endl;
       }
     }
-    else if (block.type() == Tlv::Data) {
+    else if (block.type() == tlv::Data) {
       Data data(block);
       if (matchesFilter(data.getName())) {
         std::cout << os.str() << ", " << "DATA: " << data.getName() << std::endl;
       }
     }
   }
-  catch (Tlv::Error& e) {
+  catch (tlv::Error& e) {
     std::cerr << e.what() << std::endl;
   }
 }
