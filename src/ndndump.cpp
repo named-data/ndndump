@@ -144,8 +144,9 @@ Ndndump::onCapturedPacket(const struct pcap_pkthdr* header, const uint8_t* packe
     return;
   }
 
+  bool isOk = false;
   Block block;
-  bool isOk = Block::fromBuffer(payload, payloadSize, block);
+  std::tie(isOk, block) = Block::fromBuffer(payload, payloadSize);
   if (!isOk) {
     // if packet is fragmented, we will not be able to process it
     return;
