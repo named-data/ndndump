@@ -1,6 +1,9 @@
 ndndump - packet capture and analysis tool for NDN
 ==================================================
 
+**`ndndump` has been merged into [ndn-tools](https://github.com/named-data/ndn-tools).
+Please use `ndndump` from that repository instead.**
+
 ndndump was created to provide a tcpdump-like tool for Named Data Networking (NDN).
 
 For more information about NDN, refer to [NDN Project homepage](http://www.named-data.net/).
